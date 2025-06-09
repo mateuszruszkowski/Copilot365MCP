@@ -1,7 +1,11 @@
 /**
- * Teams MCP Bot - Main Entry Point
+ * Teams MCP Bot - Fixed Version
  * Bot z integracją Model Context Protocol dla Microsoft Teams
  * Warsztat: Copilot 365 MCP Integration
+ * 
+ * NAPRAWIONE PROBLEMY:
+ * - Usunięto 'next' parametr z async handlerów (restify requirement)
+ * - Zaktualizowano do najnowszych praktyk MCP
  */
 
 require('dotenv').config();
@@ -27,13 +31,20 @@ const server = restify.createServer({
 server.use(restify.plugins.bodyParser());
 server.use(restify.plugins.queryParser());
 
-// CORS support
-server.pre(restify.plugins.pre.cors());
-server.use(restify.plugins.cors({
-    origins: ['*'],
-    allowHeaders: ['authorization', 'content-type'],
-    exposeHeaders: ['authorization', 'content-type']
-}));
+// CORS support - Compatible with restify 11
+server.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'authorization, content-type, x-requested-with');
+    res.header('Access-Control-Expose-Headers', 'authorization, content-type');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+    if (req.method === 'OPTIONS') {
+        res.send(200);
+        return next(false);
+    }
+    
+    return next();
+});
 
 // Konfiguracja Bot Framework
 const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
@@ -81,8 +92,8 @@ server.get('/health', (req, res, next) => {
     return next();
 });
 
-// Bot endpoint
-server.post('/api/messages', async (req, res, next) => {
+// Bot endpoint - NAPRAWIONY: async handler bez 'next' parametru
+server.post('/api/messages', async (req, res) => {
     try {
         await adapter.process(req, res, async (context) => {
             await bot.run(context);
@@ -92,12 +103,17 @@ server.post('/api/messages', async (req, res, next) => {
         if (appInsights.defaultClient) {
             appInsights.defaultClient.trackException({ exception: error });
         }
+        
+        // Jeśli response nie został jeszcze wysłany
+        if (!res.headersSent) {
+            res.status(500);
+            res.json({ error: 'Internal server error' });
+        }
     }
-    return next();
 });
 
-// MCP Test endpoint (for debugging)
-server.get('/api/mcp/test', async (req, res, next) => {
+// MCP Test endpoint (for debugging) - NAPRAWIONY: async handler bez 'next' parametru
+server.get('/api/mcp/test', async (req, res) => {
     try {
         const testResults = await mcpClient.testConnections();
         res.json({
@@ -107,13 +123,13 @@ server.get('/api/mcp/test', async (req, res, next) => {
         });
     } catch (error) {
         console.error('❌ MCP Test Error:', error);
+        res.status(500);
         res.json({
             status: 'error',
             error: error.message,
             timestamp: new Date().toISOString()
         });
     }
-    return next();
 });
 
 // Configuration endpoint
@@ -132,11 +148,20 @@ server.get('/api/config', (req, res, next) => {
     return next();
 });
 
+// Graceful shutdown helper
+function gracefulShutdown() {
+    console.log('\n🛑 Shutting down Teams MCP Bot...');
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
+}
+
 // Start server
 const port = process.env.PORT || 3978;
 server.listen(port, () => {
-    console.log('🚀 Teams MCP Bot Started');
-    console.log('==========================');
+    console.log('🚀 Teams MCP Bot Started (FIXED VERSION)');
+    console.log('==========================================');
     console.log(`📡 Server listening on port ${port}`);
     console.log(`🤖 Bot ID: ${process.env.MICROSOFT_APP_ID || 'Not configured'}`);
     console.log(`🔗 Health Check: http://localhost:${port}/health`);
@@ -152,21 +177,28 @@ server.listen(port, () => {
     console.log(`   • Azure DevOps: ${process.env.MCP_AZURE_DEVOPS_ENDPOINT || '❌ Not configured'}`);
     console.log('');
     console.log('✨ Ready to receive messages!');
+    console.log('🔧 FIXED: Async handlers compatibility with restify 11');
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n🛑 Shutting down Teams MCP Bot...');
-    server.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
-    });
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    if (appInsights.defaultClient) {
+        appInsights.defaultClient.trackException({ 
+            exception: new Error(`Unhandled Rejection: ${reason}`) 
+        });
+    }
 });
 
-process.on('SIGTERM', () => {
-    console.log('\n🛑 Teams MCP Bot terminated');
-    server.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
-    });
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    if (appInsights.defaultClient) {
+        appInsights.defaultClient.trackException({ exception: error });
+    }
+    gracefulShutdown();
 });

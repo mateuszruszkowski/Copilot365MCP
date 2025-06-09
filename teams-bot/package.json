@@ -12,22 +12,22 @@
     "deploy": "echo 'Deploy to Azure App Service'"
   },
   "dependencies": {
-    "botbuilder": "^4.21.0",
-    "botbuilder-core": "^4.21.0",
-    "botframework-connector": "^4.21.0",
+    "botbuilder": "^4.22.0",
+    "botbuilder-core": "^4.22.0",
+    "botframework-connector": "^4.22.0",
     "@microsoft/teams-ai": "^1.2.0",
-    "axios": "^1.6.0",
-    "dotenv": "^16.3.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
     "restify": "^11.1.0",
     "applicationinsights": "^2.9.0",
-    "uuid": "^9.0.0",
-    "moment": "^2.29.4"
+    "uuid": "^10.0.0",
+    "moment": "^2.30.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0",
+    "nodemon": "^3.1.0",
     "jest": "^29.7.0",
-    "eslint": "^8.0.0",
-    "supertest": "^6.3.0"
+    "eslint": "^9.0.0",
+    "supertest": "^7.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

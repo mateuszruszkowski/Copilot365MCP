@@ -1,10 +1,10 @@
-# 🚀 WORKSHOP START SCRIPT - Uruchom wszystkie komponenty
+﻿# 🚀 WORKSHOP START SCRIPT - Uruchom wszystkie komponenty
 # Automatycznie uruchamia wszystkie serwery MCP i Teams Bot w odpowiedniej kolejności
 
 param(
-    [switch]$TestOnly,      # Tylko testy, bez uruchamiania
-    [switch]$SkipPython,    # Pomiń Python MCP servers  
-    [switch]$SkipTeams,     # Pomiń Teams Bot
+    [switch]$TestOnly, # Tylko testy, bez uruchamiania
+    [switch]$SkipPython, # Pomiń Python MCP servers  
+    [switch]$SkipTeams, # Pomiń Teams Bot
     [switch]$QuickStart     # Szybkie uruchomienie bez testów
 )
 
@@ -28,7 +28,8 @@ if (-not $QuickStart) {
     # Sprawdź Azure konfigurację
     if (Test-Path "azure-setup\ai-config.env") {
         Write-Host "✅ Azure konfiguracja znaleziona" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "⚠️ Brak konfiguracji Azure - uruchom najpierw azure-setup" -ForegroundColor Yellow
         $continue = Read-Host "Kontynuować bez Azure? (y/N)"
         if ($continue -ne "y" -and $continue -ne "Y") {
@@ -100,10 +101,12 @@ if ($TestOnly) {
         $response = Invoke-WebRequest -Uri "https://copilotmcpdevfunc.azurewebsites.net/api/McpServer" -TimeoutSec 5
         if ($response.StatusCode -eq 200) {
             Write-Host "✅ Azure Function MCP - OK" -ForegroundColor Green
-        } else {
+        }
+        else {
             Write-Host "⚠️ Azure Function MCP - Status $($response.StatusCode)" -ForegroundColor Yellow
         }
-    } catch {
+    }
+    catch {
         Write-Host "❌ Azure Function MCP - Niedostępny" -ForegroundColor Red
     }
     
@@ -121,7 +124,8 @@ if ($TestOnly) {
     foreach ($component in $components) {
         if (Test-Path $component.Path) {
             Write-Host "✅ $($component.Name) - ścieżka OK" -ForegroundColor Green
-        } else {
+        }
+        else {
             Write-Host "❌ $($component.Name) - brak ścieżki" -ForegroundColor Red
         }
     }
@@ -217,13 +221,16 @@ foreach ($jobInfo in $jobs) {
                 $testUrl = "http://localhost:$port"
                 $response = Invoke-WebRequest -Uri $testUrl -TimeoutSec 3 -ErrorAction Stop
                 Write-Host "   🌐 HTTP $port - OK ($($response.StatusCode))" -ForegroundColor Green
-            } catch {
+            }
+            catch {
                 Write-Host "   ⚠️ HTTP $port - Not ready yet" -ForegroundColor Yellow
             }
-        } else {
+        }
+        else {
             Write-Host "   📡 $port connection" -ForegroundColor Gray
         }
-    } else {
+    }
+    else {
         Write-Host "❌ $name - $($job.State)" -ForegroundColor Red
         if ($job.ChildJobs[0].Error) {
             Write-Host "   Error: $($job.ChildJobs[0].Error)" -ForegroundColor Red
@@ -242,7 +249,8 @@ Write-Host "🧪 Azure Function Local..." -ForegroundColor Gray
 try {
     $response = Invoke-WebRequest -Uri "http://localhost:7071/api/McpServer" -TimeoutSec 5
     Write-Host "✅ Azure Function - OK" -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Host "⚠️ Azure Function - Not ready" -ForegroundColor Yellow
 }
 
@@ -252,7 +260,8 @@ if (-not $SkipTeams) {
     try {
         $response = Invoke-WebRequest -Uri "http://localhost:3978/health" -TimeoutSec 5
         Write-Host "✅ Teams Bot - OK" -ForegroundColor Green
-    } catch {
+    }
+    catch {
         Write-Host "⚠️ Teams Bot - Not ready" -ForegroundColor Yellow
     }
 }
@@ -317,7 +326,8 @@ try {
         foreach ($jobInfo in $jobs) {
             if ($jobInfo.Job.State -eq "Running") {
                 $runningCount++
-            } elseif ($jobInfo.Job.State -eq "Failed") {
+            }
+            elseif ($jobInfo.Job.State -eq "Failed") {
                 $failedJobs += $jobInfo.Name
             }
         }
@@ -329,7 +339,8 @@ try {
             Write-Host "[$timestamp] ❌ Failed: $($failedJobs -join ', ')" -ForegroundColor Red
         }
     }
-} catch {
+}
+catch {
     Write-Host "`n🛑 Monitoring zatrzymany" -ForegroundColor Yellow
 }
 

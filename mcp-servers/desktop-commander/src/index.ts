@@ -1,12 +1,23 @@
 /**
- * Desktop Commander MCP Server
+ * Desktop Commander MCP Server - FIXED VERSION
  * Model Context Protocol server for Windows system management
  * Warsztat: Copilot 365 MCP Integration
+ * 
+ * NAPRAWIONE PROBLEMY:
+ * - Zaktualizowano do najnowszego MCP SDK API (1.12.1)
+ * - Używa schematów zamiast stringów w setRequestHandler
+ * - Poprawiono importy i typy
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { exec, spawn } from 'child_process';
+import {
+    CallToolRequestSchema,
+    ListToolsRequestSchema,
+    ListResourcesRequestSchema,
+    ReadResourceRequestSchema
+} from '@modelcontextprotocol/sdk/types.js';
+import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -69,8 +80,8 @@ class DesktopCommanderMCPServer {
     }
 
     private setupHandlers(): void {
-        // Lista dostępnych narzędzi
-        this.server.setRequestHandler('tools/list', async () => {
+        // Lista dostępnych narzędzi - NAPRAWIONE API z schematami
+        this.server.setRequestHandler(ListToolsRequestSchema, async () => {
             const tools = [
                 {
                     name: 'run_powershell',
@@ -180,29 +191,6 @@ class DesktopCommanderMCPServer {
                     }
                 },
                 {
-                    name: 'registry_operations',
-                    description: 'Operacje na rejestrze Windows (tylko odczyt)',
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            action: {
-                                type: 'string',
-                                enum: ['read', 'list'],
-                                description: 'Akcja rejestru'
-                            },
-                            keyPath: {
-                                type: 'string',
-                                description: 'Ścieżka klucza rejestru'
-                            },
-                            valueName: {
-                                type: 'string',
-                                description: 'Nazwa wartości (dla read)'
-                            }
-                        },
-                        required: ['action', 'keyPath']
-                    }
-                },
-                {
                     name: 'network_info',
                     description: 'Informacje o sieci i połączeniach',
                     inputSchema: {
@@ -249,8 +237,8 @@ class DesktopCommanderMCPServer {
             return { tools };
         });
 
-        // Obsługa wywołań narzędzi
-        this.server.setRequestHandler('tools/call', async (request) => {
+        // Obsługa wywołań narzędzi - NAPRAWIONE API z schematami
+        this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const { name, arguments: args } = request.params;
 
             try {
@@ -265,8 +253,6 @@ class DesktopCommanderMCPServer {
                         return await this.manageProcesses(args);
                     case 'file_operations':
                         return await this.fileOperations(args);
-                    case 'registry_operations':
-                        return await this.registryOperations(args);
                     case 'network_info':
                         return await this.networkInfo(args);
                     case 'wmi_query':
@@ -278,42 +264,42 @@ class DesktopCommanderMCPServer {
                 return {
                     content: [{
                         type: 'text',
-                        text: `❌ Błąd wykonania narzędzia ${name}: ${error.message}`
+                        text: `❌ Błąd wykonania narzędzia ${name}: ${error instanceof Error ? error.message : String(error)}`
                     }]
                 };
             }
         });
 
-        // Lista zasobów
-        this.server.setRequestHandler('resources/list', async () => {
-            return {
-                resources: [
-                    {
-                        uri: 'system://info',
-                        name: 'System Information',
-                        description: 'Podstawowe informacje o systemie'
-                    },
-                    {
-                        uri: 'system://services',
-                        name: 'Windows Services',
-                        description: 'Lista usług Windows'
-                    },
-                    {
-                        uri: 'system://processes',
-                        name: 'Running Processes',
-                        description: 'Lista uruchomionych procesów'
-                    },
-                    {
-                        uri: 'system://network',
-                        name: 'Network Configuration',
-                        description: 'Konfiguracja sieciowa'
-                    }
-                ]
-            };
+        // Lista zasobów - NAPRAWIONE API z schematami
+        this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+            const resources = [
+                {
+                    uri: 'system://info',
+                    name: 'System Information',
+                    description: 'Podstawowe informacje o systemie'
+                },
+                {
+                    uri: 'system://services',
+                    name: 'Windows Services',
+                    description: 'Lista usług Windows'
+                },
+                {
+                    uri: 'system://processes',
+                    name: 'Running Processes',
+                    description: 'Lista uruchomionych procesów'
+                },
+                {
+                    uri: 'system://network',
+                    name: 'Network Configuration',
+                    description: 'Konfiguracja sieciowa'
+                }
+            ];
+
+            return { resources };
         });
 
-        // Odczyt zasobów
-        this.server.setRequestHandler('resources/read', async (request) => {
+        // Odczyt zasobów - NAPRAWIONE API z schematami
+        this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
             const { uri } = request.params;
 
             switch (uri) {
@@ -397,7 +383,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`PowerShell error: ${error.message}`);
+            throw new Error(`PowerShell error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -410,34 +396,30 @@ class DesktopCommanderMCPServer {
         const { action, service } = args;
 
         try {
-            let command = '';
             let result = '';
 
             switch (action) {
                 case 'start':
                     if (!service) throw new Error('Nazwa usługi jest wymagana');
-                    command = `Start-Service -Name "${service}"`;
-                    await execAsync(`powershell -Command "${command}"`);
+                    await execAsync(`powershell -Command "Start-Service -Name '${service}'"`);
                     result = `✅ Usługa **${service}** została uruchomiona`;
                     break;
 
                 case 'stop':
                     if (!service) throw new Error('Nazwa usługi jest wymagana');
-                    command = `Stop-Service -Name "${service}" -Force`;
-                    await execAsync(`powershell -Command "${command}"`);
+                    await execAsync(`powershell -Command "Stop-Service -Name '${service}' -Force"`);
                     result = `⏹️ Usługa **${service}** została zatrzymana`;
                     break;
 
                 case 'restart':
                     if (!service) throw new Error('Nazwa usługi jest wymagana');
-                    command = `Restart-Service -Name "${service}" -Force`;
-                    await execAsync(`powershell -Command "${command}"`);
+                    await execAsync(`powershell -Command "Restart-Service -Name '${service}' -Force"`);
                     result = `🔄 Usługa **${service}** została zrestartowana`;
                     break;
 
                 case 'status':
                     if (!service) throw new Error('Nazwa usługi jest wymagana');
-                    command = `Get-Service -Name "${service}" | Select-Object Name, Status, StartType, DisplayName | ConvertTo-Json`;
+                    const command = `Get-Service -Name "${service}" | Select-Object Name, Status, StartType, DisplayName | ConvertTo-Json`;
                     const { stdout } = await execAsync(`powershell -Command "${command}"`);
                     const serviceInfo = JSON.parse(stdout);
                     result = this.formatServiceStatus(serviceInfo);
@@ -459,7 +441,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`Service management error: ${error.message}`);
+            throw new Error(`Service management error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -478,7 +460,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`System info error: ${error.message}`);
+            throw new Error(`System info error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -537,7 +519,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`Process management error: ${error.message}`);
+            throw new Error(`Process management error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -602,49 +584,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`File operation error: ${error.message}`);
-        }
-    }
-
-    // Registry operations (Windows only, read-only)
-    private async registryOperations(args: any) {
-        if (!this.isWindows) {
-            throw new Error('Operacje rejestru są dostępne tylko na Windows');
-        }
-
-        const { action, keyPath, valueName } = args;
-
-        try {
-            let result = '';
-
-            switch (action) {
-                case 'read':
-                    if (!valueName) throw new Error('Nazwa wartości jest wymagana');
-                    const command = `Get-ItemProperty -Path "Registry::${keyPath}" -Name "${valueName}" | Select-Object -ExpandProperty "${valueName}"`;
-                    const { stdout } = await execAsync(`powershell -Command "${command}"`);
-                    result = `🔑 **Registry Value:** ${keyPath}\\${valueName}\n\n`;
-                    result += `📋 **Value:** ${stdout.trim()}`;
-                    break;
-
-                case 'list':
-                    const listCommand = `Get-ChildItem -Path "Registry::${keyPath}" | Select-Object Name`;
-                    const { stdout: listOutput } = await execAsync(`powershell -Command "${listCommand}"`);
-                    result = `🔑 **Registry Keys:** ${keyPath}\n\n`;
-                    result += `\`\`\`\n${listOutput}\n\`\`\``;
-                    break;
-
-                default:
-                    throw new Error(`Nieznana akcja: ${action}`);
-            }
-
-            return {
-                content: [{
-                    type: 'text',
-                    text: result
-                }]
-            };
-        } catch (error) {
-            throw new Error(`Registry operation error: ${error.message}`);
+            throw new Error(`File operation error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -696,7 +636,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`Network info error: ${error.message}`);
+            throw new Error(`Network info error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -724,7 +664,7 @@ class DesktopCommanderMCPServer {
                 }]
             };
         } catch (error) {
-            throw new Error(`WMI query error: ${error.message}`);
+            throw new Error(`WMI query error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -904,7 +844,7 @@ class DesktopCommanderMCPServer {
             const { stdout } = await execAsync(command);
             return stdout;
         } catch (error) {
-            throw new Error(`Process not found or error getting process info: ${error.message}`);
+            throw new Error(`Process not found or error getting process info: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -964,6 +904,7 @@ class DesktopCommanderMCPServer {
         console.error('🖥️ Desktop Commander MCP Server starting...');
         console.error(`📋 Platform: ${os.platform()}`);
         console.error(`🏷️ Node version: ${process.version}`);
+        console.error(`📦 MCP SDK: Updated to latest version`);
         
         const transport = new StdioServerTransport();
         await this.server.connect(transport);
