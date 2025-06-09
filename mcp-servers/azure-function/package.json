@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@azure/functions": "^4.5.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "azure-devops-node-api": "^12.5.0",
-    "axios": "^1.6.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "azure-devops-node-api": "^14.0.0",
+    "axios": "^1.7.0",
     "applicationinsights": "^2.9.0"
   },
   "devDependencies": {
