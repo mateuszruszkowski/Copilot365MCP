@@ -1,8 +1,224 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "name": "🚀 Copilot 365 MCP Workshop",
+      "path": "."
+    },
+    {
+      "name": "☁️ Azure Setup",
+      "path": "./azure-setup"
+    },
+    {
+      "name": "🛠️ MCP Servers",
+      "path": "./mcp-servers"
+    },
+    {
+      "name": "🤖 Teams Bot",
+      "path": "./teams-bot"
+    },
+    {
+      "name": "📚 Documentation",
+      "path": "./docs"
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "./venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "azure.cloud": "AzureCloud",
+    "azure.subscriptionId": "2e539821-ff47-4b8a-9f5a-200de5bb3e8d",
+    "azure.resourceGroup": "copilot-mcp-workshop-rg",
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.git": true,
+      "**/.DS_Store": true,
+      "**/dist": true,
+      "**/.venv": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/.env": true,
+      "**/ai-config.env": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.venv": true,
+      "**/__pycache__": true
+    },
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "powershell.scriptAnalysis.enable": true,
+    "powershell.codeFormatting.preset": "OTBS",
+    "json.format.enable": true,
+    "markdown.preview.breaks": true,
+    "git.autofetch": true,
+    "git.enableSmartCommit": true,
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "workbench.colorTheme": "Dark+ (default dark)",
+    "workbench.iconTheme": "vs-seti",
+    "explorer.confirmDragAndDrop": false,
+    "explorer.confirmDelete": true,
+    "debug.internalConsoleOptions": "neverOpen"
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.azure-account",
+      "ms-azuretools.vscode-azurefunctions",
+      "ms-vscode.powershell",
+      "ms-python.python",
+      "TeamsDevApp.ms-teams-vscode-extension",
+      "ms-azuretools.vscode-docker",
+      "eamodio.gitlens",
+      "ms-vscode.vscode-typescript-next",
+      "ms-azuretools.vscode-azureresourcegroups",
+      "ms-vscode.azure-repos",
+      "ms-azuretools.vscode-azurestaticwebapps",
+      "bradlc.vscode-tailwindcss",
+      "ms-vscode.vscode-json",
+      "humao.rest-client",
+      "ms-azuretools.vscode-cosmosdb",
+      "ms-azuretools.vscode-azurestorage",
+      "ms-vscode.azure-cli-tools",
+      "ms-azuretools.vscode-bicep",
+      "hashicorp.terraform",
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "ms-dotnettools.csharp",
+      "ms-vscode.azure-pipelines"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Setup Azure Resources",
+        "type": "shell",
+        "command": "powershell",
+        "args": [
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}/azure-setup/setup-azure.ps1"
+        ],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}/azure-setup"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Start Azure Functions",
+        "type": "shell",
+        "command": "func",
+        "args": ["start"],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}/mcp-servers/azure-function"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Start Teams Bot",
+        "type": "shell",
+        "command": "npm",
+        "args": ["start"],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}/teams-bot"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Install All Dependencies",
+        "type": "shell",
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "cd '${workspaceFolder}/mcp-servers/azure-function'; npm install; cd '${workspaceFolder}/teams-bot'; npm install; cd '${workspaceFolder}/mcp-servers/local-devops'; pip install -r requirements.txt; cd '${workspaceFolder}/mcp-servers/azure-devops'; pip install -r requirements.txt; cd '${workspaceFolder}/mcp-servers/desktop-commander'; npm install"
+        ],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Test MCP Connections",
+        "type": "shell",
+        "command": "curl",
+        "args": [
+          "-X",
+          "GET",
+          "http://localhost:7071/api/McpServer"
+        ],
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "problemMatcher": []
+      }
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug Azure Functions",
+        "type": "node",
+        "request": "attach",
+        "port": 9229,
+        "restart": true,
+        "localRoot": "${workspaceFolder}/mcp-servers/azure-function",
+        "remoteRoot": "/home/site/wwwroot",
+        "skipFiles": ["<node_internals>/**"]
+      },
+      {
+        "name": "Debug Teams Bot",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceFolder}/teams-bot/src/index.js",
+        "env": {
+          "NODE_ENV": "development"
+        },
+        "cwd": "${workspaceFolder}/teams-bot"
+      },
+      {
+        "name": "Debug Python MCP Server",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/mcp-servers/local-devops/local-mcp-server.py",
+        "cwd": "${workspaceFolder}/mcp-servers/local-devops",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/mcp-servers/local-devops"
+        }
+      }
+    ]
+  }
 }

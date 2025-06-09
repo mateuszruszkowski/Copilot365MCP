@@ -1,0 +1,35 @@
+{
+  "name": "mcp-azure-function",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for Azure DevOps integration",
+  "main": "McpServer/index.js",
+  "scripts": {
+    "start": "func start",
+    "test": "jest",
+    "build": "echo 'No build step required'",
+    "deploy": "func azure functionapp publish $FUNCTION_APP_NAME"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "azure-devops-node-api": "^12.5.0",
+    "axios": "^1.6.0",
+    "applicationinsights": "^2.9.0"
+  },
+  "devDependencies": {
+    "@azure/functions-core-tools": "^4.0.0",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "azure",
+    "mcp",
+    "model-context-protocol",
+    "devops",
+    "copilot"
+  ],
+  "author": "Workshop Participant",
+  "license": "MIT"
+}

@@ -1,0 +1,26 @@
+# Requirements dla Azure DevOps MCP Server
+# Zainstaluj: pip install -r requirements.txt
+
+# Model Context Protocol SDK
+mcp>=1.0.0
+
+# HTTP Client
+aiohttp>=3.8.0
+asyncio>=3.4.3
+
+# Azure DevOps API
+azure-devops>=7.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# Development tools
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Optional: For enhanced functionality
+requests>=2.31.0
+httpx>=0.24.0
