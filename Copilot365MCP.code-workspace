@@ -61,7 +61,7 @@
     "workbench.colorTheme": "Dark+ (default dark)",
     "workbench.iconTheme": "vs-seti",
     "explorer.confirmDragAndDrop": false,
-    "explorer.confirmDelete": true,
+    "explorer.confirmDelete": false,
     "debug.internalConsoleOptions": "neverOpen"
   },
   "extensions": {

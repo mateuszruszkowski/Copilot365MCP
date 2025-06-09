@@ -98,20 +98,30 @@ copy mcp-servers\azure-devops\.env.template mcp-servers\azure-devops\.env
 
 **Wypełnij pliki .env danymi z `azure-setup/ai-config.env`**
 
-### 5️⃣ Test lokalny (wszystkie serwery)
+### 5️⃣ Uruchomienie ALL-IN-ONE (NAJŁATWIEJSZE):
+
+```powershell
+# JEDNA KOMENDA uruchamia wszystko:
+.\start-workshop.ps1
+
+# Lub z opcjami:
+.\start-workshop.ps1 -QuickStart     # Szybkie uruchomienie
+.\start-workshop.ps1 -TestOnly       # Tylko testy
+.\start-workshop.ps1 -SkipPython     # Bez Python servers
+```
+
+### 5️⃣ Alternative: Manual start (każdy w osobnym terminalu)
 
 **Terminal 1 - Azure Functions:**
 ```bash
 cd mcp-servers/azure-function
-func start
-# Dostępny na: http://localhost:7071
+func start  # http://localhost:7071
 ```
 
 **Terminal 2 - Teams Bot:**
 ```bash
 cd teams-bot
-npm start  
-# Dostępny na: http://localhost:3978
+npm start   # http://localhost:3978
 ```
 
 **Terminal 3 - Local DevOps MCP:**
@@ -134,19 +144,16 @@ npm start
 
 ## 🧪 Szybkie testy
 
-### Test 1: Health Check
-```bash
-# Test Azure Function
-curl http://localhost:7071/api/McpServer
+### Test 1: All-in-One Health Check
+```powershell
+# Test wszystkich komponentów jednocześnie:
+.\start-workshop.ps1 -TestOnly
 
-# Test Teams Bot
-curl http://localhost:3978/health
-
-# Test MCP connections
-curl http://localhost:3978/api/mcp/test
-
-# Test konfiguracji
-curl http://localhost:3978/api/config
+# Lub ręcznie:
+curl http://localhost:7071/api/McpServer     # Azure Function
+curl http://localhost:3978/health           # Teams Bot
+curl http://localhost:3978/api/mcp/test     # MCP connections
+curl http://localhost:3978/api/config       # Konfiguracja
 ```
 
 ### Test 2: MCP Tools (PowerShell)
@@ -305,6 +312,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 - [ ] ✅ Azure Function działa (sprawdź: `curl http://localhost:7071/api/McpServer`)
 - [ ] ✅ Teams Bot odpowiada (sprawdź: `curl http://localhost:3978/health`)
 - [ ] ✅ MCP servers uruchomione (sprawdź procesy Python/Node.js)
+- [ ] ✅ Test All-in-One (`.\.\start-workshop.ps1 -TestOnly`)
 - [ ] ✅ VS Code workspace załadowany z rozszerzeniami
 - [ ] ✅ Pliki .env skonfigurowane
 - [ ] ✅ Tests passing (sprawdź: `curl http://localhost:3978/api/mcp/test`)

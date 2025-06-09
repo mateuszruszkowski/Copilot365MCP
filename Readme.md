@@ -83,11 +83,14 @@ code Copilot365MCP.code-workspace
 # Przejdź do katalogu setup
 cd azure-setup
 
-# Ustaw zmienne środowiskowe
-.\setup-variables.ps1
+# UŻYJ POPRAWIONYCH PLIKÓW (z naprawami błędów):
+.\setup-variables-fixed.ps1     # ← Poprawione nazwy zasobów
+.\setup-azure-fixed.ps1         # ← Naprawione błędy Azure
 
-# Uruchom konfigurację Azure (wymaga uprawnień Contributor)
-.\setup-azure.ps1
+# W razie problemów:
+.\diagnose-azure.ps1            # ← Diagnostyka
+.\quick-fix-azure.ps1 -All     # ← Automatyczne naprawy
+.\test-azure-config.ps1        # ← Test konfiguracji
 ```
 
 ### 3. Instalacja dependencies
@@ -252,6 +255,26 @@ Zainstaluj następujące rozszerzenia VS Code dla optymalnego doświadczenia:
   }
 }
 ```
+
+## 🔧 Naprawy Azure (jeśli wystąpiły problemy)
+
+### 🚨 Jeśli otrzymałeś błędy podczas setup Azure:
+
+1. **"Subscription not found"** - błędne ID subskrypcji
+2. **"Resource provider not registered"** - brak rejestracji providerów  
+3. **"Invalid location"** - nieprawidłowa lokacja
+4. **"Registry name cannot contain dashes"** - myślniki w nazwach
+
+### ✅ SZYBKA NAPRAWA (1 komenda):
+```powershell
+cd azure-setup
+.\quick-fix-azure.ps1 -All
+```
+
+### 📋 Szczegółowy przewodnik napraw:
+👉 **[AZURE-FIX-GUIDE.md](AZURE-FIX-GUIDE.md)** - kompletna instrukcja naprawy
+
+---
 
 ## 🚨 Troubleshooting
 
