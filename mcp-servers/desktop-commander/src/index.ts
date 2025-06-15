@@ -47,6 +47,7 @@ interface ServiceStatus {
     status: string;
     startType: string;
     description?: string;
+    displayName?: string;
 }
 
 interface ProcessInfo {

@@ -1,11 +1,12 @@
-﻿# 🚀 WORKSHOP START SCRIPT - Uruchom wszystkie komponenty
+﻿# 🚀 WORKSHOP START SCRIPT - Uruchom wszystkie komponenty + ngrok dla Copilot Studio
 # Automatycznie uruchamia wszystkie serwery MCP i Teams Bot w odpowiedniej kolejności
 
 param(
     [switch]$TestOnly, # Tylko testy, bez uruchamiania
     [switch]$SkipPython, # Pomiń Python MCP servers  
     [switch]$SkipTeams, # Pomiń Teams Bot
-    [switch]$QuickStart     # Szybkie uruchomienie bez testów
+    [switch]$QuickStart, # Szybkie uruchomienie bez testów
+    [switch]$SkipNgrok  # Pomiń ngrok (dla rozwoju lokalnego)
 )
 
 Write-Host "🚀 Workshop Start Script - Copilot 365 MCP Integration" -ForegroundColor Green
@@ -23,6 +24,28 @@ if (-not $QuickStart) {
         Write-Host "❌ Uruchom skrypt z głównego katalogu projektu!" -ForegroundColor Red
         Write-Host "   cd D:\Workshops\Copilot365MCP" -ForegroundColor Yellow
         exit 1
+    }
+    
+    # Sprawdź ngrok (dla Copilot Studio)
+    if (-not $SkipNgrok) {
+        Write-Host "🌐 Sprawdzanie ngrok..." -ForegroundColor Yellow
+        try {
+            $ngrokVersion = ngrok version 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ ngrok znaleziony: $($ngrokVersion | Select-String 'version')" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Host "⚠️ ngrok nie znaleziony!" -ForegroundColor Yellow
+            Write-Host "   Pobierz z: https://ngrok.com/download" -ForegroundColor Cyan
+            Write-Host "   Lub pomiń: .\start-workshop.ps1 -SkipNgrok" -ForegroundColor Cyan
+            $continue = Read-Host "Kontynuować bez ngrok? (y/N)"
+            if ($continue -ne "y" -and $continue -ne "Y") {
+                Write-Host "❌ Anulowano. Zainstaluj ngrok aby używać z Copilot Studio" -ForegroundColor Red
+                exit 1
+            }
+            $SkipNgrok = $true
+        }
     }
     
     # Sprawdź Azure konfigurację
@@ -152,6 +175,45 @@ $jobs += @{ Job = $azureFunctionJob; Name = "Azure Function"; Port = 7071 }
 
 Start-Sleep 3
 
+# ngrok Tunnel (dla Copilot Studio)
+$ngrokUrl = $null
+if (-not $SkipNgrok) {
+    Write-Host "🌐 Uruchamianie ngrok tunnel..." -ForegroundColor Yellow
+    try {
+        # Sprawdź czy ngrok już działa na porcie 7071
+        $existingNgrok = Get-Process -Name "ngrok" -ErrorAction SilentlyContinue
+        if ($existingNgrok) {
+            Write-Host "⚠️ ngrok już działa - zatrzymywanie..." -ForegroundColor Yellow
+            Stop-Process -Name "ngrok" -Force -ErrorAction SilentlyContinue
+            Start-Sleep 2
+        }
+        
+        # Uruchom ngrok
+        $ngrokJob = Start-Job -ScriptBlock {
+            ngrok http 7071 --log=stdout
+        } -Name "Ngrok"
+        
+        $jobs += @{ Job = $ngrokJob; Name = "Ngrok Tunnel"; Port = "tunnel" }
+        
+        # Czekaj na uruchomienie ngrok i pobierz URL
+        Start-Sleep 5
+        try {
+            $ngrokApi = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -TimeoutSec 5
+            if ($ngrokApi.tunnels) {
+                $ngrokUrl = $ngrokApi.tunnels[0].public_url
+                Write-Host "✅ Ngrok tunnel utworzony: $ngrokUrl" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Host "⚠️ Nie udało się pobrać ngrok URL - sprawdź ręcznie na http://localhost:4040" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "❌ Błąd uruchamiania ngrok: $($_.Exception.Message)" -ForegroundColor Red
+        $SkipNgrok = $true
+    }
+}
+
 # Local DevOps MCP (Python)
 if (-not $SkipPython) {
     Write-Host "🐍 Uruchamianie Local DevOps MCP..." -ForegroundColor Yellow
@@ -267,6 +329,32 @@ if (-not $SkipTeams) {
 }
 
 # ============================================================================
+# COPILOT STUDIO INTEGRATION INFO
+# ============================================================================
+
+Write-Host "`n🤖 COPILOT STUDIO INTEGRATION" -ForegroundColor Green
+Write-Host "==============================" -ForegroundColor Green
+
+if ($ngrokUrl) {
+    Write-Host "✅ Publiczny MCP Server URL (dla Copilot Studio):" -ForegroundColor Green
+    Write-Host "   $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "📋 KONFIGURACJA COPILOT STUDIO:" -ForegroundColor Yellow
+    Write-Host "   1. Otwórz swojego agenta 'DevOps MCP Assistant'" -ForegroundColor White
+    Write-Host "   2. Idź do: Settings → Actions → Model Context Protocol" -ForegroundColor White
+    Write-Host "   3. Dodaj MCP Server:" -ForegroundColor White
+    Write-Host "      URL: $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+    Write-Host "      Method: POST" -ForegroundColor White
+    Write-Host "   4. Test: Napisz 'What tools do you have?'" -ForegroundColor White
+} else {
+    Write-Host "⚠️ Ngrok nie działa - dla Copilot Studio potrzebujesz publiczny URL" -ForegroundColor Yellow
+    Write-Host "   Opcje:" -ForegroundColor White
+    Write-Host "   • Zainstaluj ngrok: https://ngrok.com/download" -ForegroundColor Cyan
+    Write-Host "   • Użyj Azure Function w chmurze" -ForegroundColor Cyan
+    Write-Host "   • Test lokalnie: curl http://localhost:7071/api/McpServer" -ForegroundColor Cyan
+}
+
+# ============================================================================
 # SUMMARY & MONITORING
 # ============================================================================
 
@@ -281,7 +369,11 @@ foreach ($jobInfo in $jobs) {
 }
 
 Write-Host "`n🔗 Endpoints:" -ForegroundColor Cyan
-Write-Host "   • Azure Function: http://localhost:7071/api/McpServer" -ForegroundColor White
+Write-Host "   • Azure Function (local): http://localhost:7071/api/McpServer" -ForegroundColor White
+if ($ngrokUrl) {
+    Write-Host "   • Azure Function (public): $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+    Write-Host "   • Ngrok Dashboard: http://localhost:4040" -ForegroundColor White
+}
 if (-not $SkipTeams) {
     Write-Host "   • Teams Bot Health: http://localhost:3978/health" -ForegroundColor White
     Write-Host "   • Teams Bot Config: http://localhost:3978/api/config" -ForegroundColor White
@@ -290,6 +382,9 @@ if (-not $SkipTeams) {
 
 Write-Host "`n🎯 Workshop Commands:" -ForegroundColor Cyan
 Write-Host "   • Test Azure: curl http://localhost:7071/api/McpServer" -ForegroundColor White
+if ($ngrokUrl) {
+    Write-Host "   • Test Public: curl $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+}
 if (-not $SkipTeams) {
     Write-Host "   • Test Teams: curl http://localhost:3978/health" -ForegroundColor White
 }
@@ -304,9 +399,42 @@ Write-Host "   • Debug Teams Bot: F5 → 'Debug Teams Bot'" -ForegroundColor W
 Write-Host "`n🎮 Demo Scenarios:" -ForegroundColor Cyan
 Write-Host "   1. Test MCP Tools: [POST] http://localhost:7071/api/McpServer" -ForegroundColor White
 Write-Host "      Body: {\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}" -ForegroundColor Gray
+if ($ngrokUrl) {
+    Write-Host "   2. Copilot Studio: Użyj URL $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+}
 if (-not $SkipTeams) {
-    Write-Host "   2. Teams Bot Help: Send 'help' in Teams" -ForegroundColor White
-    Write-Host "   3. Deploy Demo: Send 'deploy v1.0.0 do staging' in Teams" -ForegroundColor White
+    Write-Host "   3. Teams Bot Help: Send 'help' in Teams" -ForegroundColor White
+    Write-Host "   4. Deploy Demo: Send 'deploy v1.0.0 do staging' in Teams" -ForegroundColor White
+}
+
+# ============================================================================
+# MCP TOOLS TEST
+# ============================================================================
+
+Write-Host "`n🧪 MCP TOOLS TEST" -ForegroundColor Yellow
+Write-Host "=================" -ForegroundColor Yellow
+
+if ($ngrokUrl -or (Test-NetConnection -ComputerName "localhost" -Port 7071 -InformationLevel Quiet)) {
+    $testUrl = if ($ngrokUrl) { "$ngrokUrl/api/McpServer" } else { "http://localhost:7071/api/McpServer" }
+    
+    Write-Host "Testing MCP tools list..." -ForegroundColor Gray
+    try {
+        $mcpTest = Invoke-RestMethod -Uri $testUrl -Method POST -ContentType "application/json" -Body '{"jsonrpc":"2.0","method":"tools/list","id":1}' -TimeoutSec 10
+        
+        if ($mcpTest.result -and $mcpTest.result.tools) {
+            Write-Host "✅ MCP Tools dostępne:" -ForegroundColor Green
+            foreach ($tool in $mcpTest.result.tools) {
+                Write-Host "   • $($tool.name): $($tool.description)" -ForegroundColor White
+            }
+        } else {
+            Write-Host "⚠️ MCP odpowiada ale brak tools" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "❌ Błąd testowania MCP: $($_.Exception.Message)" -ForegroundColor Red
+    }
+} else {
+    Write-Host "⚠️ Azure Function nie odpowiada - pomiń test MCP" -ForegroundColor Yellow
 }
 
 # ============================================================================
@@ -338,6 +466,20 @@ try {
         if ($failedJobs.Count -gt 0) {
             Write-Host "[$timestamp] ❌ Failed: $($failedJobs -join ', ')" -ForegroundColor Red
         }
+        
+        # Sprawdź ngrok co 5 minut
+        if (-not $SkipNgrok -and $ngrokUrl -and ((Get-Date).Minute % 5 -eq 0)) {
+            try {
+                $ngrokStatus = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -TimeoutSec 3
+                if ($ngrokStatus.tunnels -and $ngrokStatus.tunnels[0].public_url -ne $ngrokUrl) {
+                    $ngrokUrl = $ngrokStatus.tunnels[0].public_url
+                    Write-Host "[$timestamp] 🌐 Ngrok URL updated: $ngrokUrl" -ForegroundColor Cyan
+                }
+            }
+            catch {
+                Write-Host "[$timestamp] ⚠️ Ngrok status check failed" -ForegroundColor Yellow
+            }
+        }
     }
 }
 catch {
@@ -350,7 +492,7 @@ catch {
 
 Write-Host "`n🧹 Cleanup..." -ForegroundColor Cyan
 
-$cleanup = Read-Host "Zatrzymać wszystkie serwery? (Y/n)"
+$cleanup = Read-Host "Zatrzymać wszystkie serwery (włącznie z ngrok)? (Y/n)"
 if ($cleanup -ne "n" -and $cleanup -ne "N") {
     Write-Host "🛑 Zatrzymywanie serwerów..." -ForegroundColor Yellow
     
@@ -362,9 +504,15 @@ if ($cleanup -ne "n" -and $cleanup -ne "N") {
         }
     }
     
+    # Zatrzymaj ngrok osobno
+    Get-Process -Name "ngrok" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    
     Write-Host "✅ Wszystkie serwery zatrzymane" -ForegroundColor Green
 }
 
 Write-Host "`n🎉 Workshop Script zakończony!" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 Write-Host "💡 Aby uruchomić ponownie: .\start-workshop.ps1" -ForegroundColor Cyan
+if ($ngrokUrl) {
+    Write-Host "🌐 Zapamiętaj URL dla Copilot Studio: $ngrokUrl/api/McpServer" -ForegroundColor Yellow
+}

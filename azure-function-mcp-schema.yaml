@@ -1,0 +1,88 @@
+swagger: '2.0'
+info:
+  title: DevOps MCP Assistant
+  description: MCP Server for Azure DevOps automation and deployment tools
+  version: 1.0.0
+host: localhost:7071
+basePath: /
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+definitions:
+  MCPRequest:
+    type: object
+    properties:
+      jsonrpc:
+        type: string
+        default: "2.0"
+      method:
+        type: string
+        enum: ["initialize", "tools/list", "tools/call", "resources/list", "resources/read"]
+      params:
+        type: object
+      id:
+        type: string
+    required:
+      - jsonrpc
+      - method
+      - id
+  MCPResponse:
+    type: object
+    properties:
+      jsonrpc:
+        type: string
+      id:
+        type: string
+      result:
+        type: object
+      error:
+        type: object
+paths:
+  /api/McpServer:
+    post:
+      summary: DevOps MCP Server
+      description: Execute DevOps automation tasks through MCP protocol
+      operationId: InvokeMCPServer
+      parameters:
+        - in: body
+          name: body
+          description: MCP request payload
+          required: true
+          schema:
+            $ref: '#/definitions/MCPRequest'
+      responses:
+        '200':
+          description: Successful MCP response
+          schema:
+            $ref: '#/definitions/MCPResponse'
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+      tags:
+        - Agentic
+        - McpSse
+    get:
+      summary: Health check
+      description: Check if MCP server is running
+      operationId: HealthCheck
+      responses:
+        '200':
+          description: Server is healthy
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              version:
+                type: string
+              status:
+                type: string
+      tags:
+        - Health
+securityDefinitions: {}
+security: []

@@ -17,7 +17,6 @@
     "applicationinsights": "^2.9.0"
   },
   "devDependencies": {
-    "@azure/functions-core-tools": "^4.0.0",
     "jest": "^29.7.0"
   },
   "engines": {
