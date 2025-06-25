@@ -3,7 +3,8 @@
     "allow": [
       "Bash(pip index versions:*)",
       "Bash(find:*)",
-      "Bash(az functionapp show:*)"
+      "Bash(az functionapp show:*)",
+      "Bash(az storage account show:*)"
     ],
     "deny": []
   }
