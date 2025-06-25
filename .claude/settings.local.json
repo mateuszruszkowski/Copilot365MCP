@@ -4,7 +4,8 @@
       "Bash(pip index versions:*)",
       "Bash(find:*)",
       "Bash(az functionapp show:*)",
-      "Bash(az storage account show:*)"
+      "Bash(az storage account show:*)",
+      "Bash(powershell.exe:*)"
     ],
     "deny": []
   }
