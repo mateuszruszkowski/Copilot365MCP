@@ -151,7 +151,7 @@ class AzureDevOpsMCPServer:
             query = f"SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = '{project}' ORDER BY [System.ChangedDate] DESC"
         
         wiql = Wiql(query=query)
-        query_result = wit_client.query_by_wiql(wiql, project=project, top=limit)
+        query_result = wit_client.query_by_wiql(wiql, top=limit)
         
         work_items = []
         if query_result.work_items:
