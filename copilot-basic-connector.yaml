@@ -1,0 +1,77 @@
+swagger: '2.0'
+info:
+  title: Azure DevOps MCP
+  description: Azure DevOps integration via Model Context Protocol for work item management
+  version: 1.0.0
+host: copilotmcpdevfunc.azurewebsites.net
+basePath: /api
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  apiKeyHeader:
+    type: apiKey
+    name: x-functions-key
+    in: header
+security:
+  - apiKeyHeader: []
+paths:
+  /mcp:
+    post:
+      tags:
+        - MCP
+      summary: Invoke MCP
+      description: Execute MCP commands for Azure DevOps
+      operationId: InvokeMCP
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              method:
+                type: string
+                description: MCP method
+                default: tools/call
+              params:
+                type: object
+                description: Method parameters
+                properties:
+                  name:
+                    type: string
+                    description: Tool name
+                    default: list_work_items
+                  arguments:
+                    type: object
+                    description: Tool arguments
+                    properties:
+                      project:
+                        type: string
+                        description: Project name
+                        default: AI Space Team
+      responses:
+        200:
+          description: Success
+          schema:
+            type: object
+            properties:
+              result:
+                type: object
+        400:
+          description: Bad Request
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+        500:
+          description: Server Error
+          schema:
+            type: object
+            properties:
+              error:
+                type: string

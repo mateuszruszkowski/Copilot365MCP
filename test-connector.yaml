@@ -1,0 +1,57 @@
+swagger: '2.0'
+info:
+  title: Azure DevOps Work Items
+  description: Simple connector for listing Azure DevOps work items via MCP
+  version: 1.0.0
+host: copilotmcpdevfunc.azurewebsites.net
+basePath: /api
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  apiKey:
+    type: apiKey
+    in: header
+    name: x-functions-key
+security:
+  - apiKey: []
+paths:
+  /mcp:
+    post:
+      summary: List Work Items
+      description: Get work items from Azure DevOps project
+      operationId: ListWorkItems
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              method:
+                type: string
+                default: "tools/call"
+                x-ms-visibility: internal
+              params:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    default: "list_work_items"
+                    x-ms-visibility: internal
+                  arguments:
+                    type: object
+                    properties:
+                      project:
+                        type: string
+                        description: Project name
+                        default: "AI Space Team"
+                        x-ms-summary: Project
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: object

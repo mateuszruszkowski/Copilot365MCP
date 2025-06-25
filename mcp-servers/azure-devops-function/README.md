@@ -154,13 +154,18 @@ AZURE_DEVOPS_PROJECT=DefaultProject
 
 ## 🔗 Integracja z Copilot Studio
 
+Szczegółowa instrukcja konfiguracji znajduje się w pliku [COPILOT-STUDIO-SETUP.md](./COPILOT-STUDIO-SETUP.md).
+
+### Szybki start:
 1. Po deployment uruchom `.\deploy.ps1` - automatycznie wygeneruje plik YAML
 2. W Copilot Studio:
    - Settings > Custom Connectors
    - Import OpenAPI file
-   - Wybierz `copilot-custom-connection.yaml`
+   - Wybierz `copilot-connector-fixed.yaml`
 3. Skonfiguruj połączenie używając Function Key
-4. Test: "What tools do you have?"
+4. Test: "Show me work items from AI Space Team"
+
+⚠️ **Ważne**: Dla projektów ze spacjami w nazwie (np. "AI Space Team") używaj dokładnej nazwy ze spacjami.
 
 ## 🐛 Rozwiązywanie problemów
 

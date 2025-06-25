@@ -1,0 +1,93 @@
+swagger: '2.0'
+info:
+  title: Azure DevOps MCP Connector
+  description: Model Context Protocol connector for Azure DevOps work item management
+  version: 1.0.0
+host: copilotmcpdevfunc.azurewebsites.net
+basePath: /api
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  apiKey:
+    type: apiKey
+    in: header
+    name: x-functions-key
+security:
+  - apiKey: []
+paths:
+  /mcp:
+    post:
+      summary: Execute MCP Command
+      description: Execute Model Context Protocol command for Azure DevOps operations
+      operationId: ExecuteMCPCommand
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: MCP Request Body
+          schema:
+            type: object
+            required:
+              - method
+              - params
+            properties:
+              method:
+                type: string
+                description: MCP method to execute
+                default: "tools/call"
+                enum:
+                  - tools/list
+                  - tools/call
+                x-ms-visibility: none
+              params:
+                type: object
+                description: Parameters for the method
+                required:
+                  - name
+                  - arguments
+                properties:
+                  name:
+                    type: string
+                    description: Tool name
+                    default: "list_work_items"
+                    enum:
+                      - list_work_items
+                      - get_work_item
+                      - create_work_item
+                      - update_work_item
+                      - run_pipeline
+                      - get_pipeline_status
+                    x-ms-visibility: none
+                  arguments:
+                    type: object
+                    description: Arguments for the tool
+                    required:
+                      - project
+                    properties:
+                      project:
+                        type: string
+                        description: Azure DevOps project name
+                        default: "AI Space Team"
+                        x-ms-summary: Project Name
+                        x-ms-visibility: important
+              id:
+                type: integer
+                description: Request ID
+                default: 1
+                x-ms-visibility: none
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: object
+            properties:
+              result:
+                type: object
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error

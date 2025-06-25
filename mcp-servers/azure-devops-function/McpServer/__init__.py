@@ -354,6 +354,34 @@ class AzureDevOpsMCPServer:
 async def main(req: func.HttpRequest) -> func.HttpResponse:
     logger.info('Azure DevOps MCP Server function triggered')
     
+    # Handle GET request for testing
+    if req.method == 'GET':
+        return func.HttpResponse(
+            json.dumps({
+                "status": "ok",
+                "message": "Azure DevOps MCP Server is running",
+                "version": "1.0.0"
+            }),
+            status_code=200,
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+    
+    # Handle OPTIONS request (CORS preflight)
+    if req.method == 'OPTIONS':
+        return func.HttpResponse(
+            "",
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, x-functions-key",
+                "Access-Control-Max-Age": "3600"
+            }
+        )
+    
     try:
         # Parse request
         req_body = req.get_json()
@@ -389,10 +417,32 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
             }
         )
         
+    except ValueError as e:
+        logger.error(f"JSON parsing error: {str(e)}")
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON in request body"}),
+            status_code=400,
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
+        logger.error(f"Request method: {req.method}")
+        logger.error(f"Request headers: {dict(req.headers)}")
+        logger.error(f"Request body: {req.get_body().decode('utf-8') if req.get_body() else 'empty'}")
+        
         return func.HttpResponse(
-            json.dumps({"error": str(e)}),
+            json.dumps({
+                "error": str(e),
+                "type": type(e).__name__,
+                "method": req.method,
+                "path": req.url
+            }),
             status_code=500,
-            headers={"Content-Type": "application/json"}
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
         )
