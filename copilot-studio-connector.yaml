@@ -1,0 +1,58 @@
+swagger: '2.0'
+info:
+  title: Azure DevOps MCP
+  description: MCP Server for Azure DevOps
+  version: 1.0.0
+host: copilotmcpdevfunc.azurewebsites.net
+basePath: /api
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  api_key:
+    type: apiKey
+    in: header
+    name: x-functions-key
+    description: Azure Functions API Key
+paths:
+  /mcp:
+    post:
+      summary: Execute MCP Request
+      description: Execute Model Context Protocol request
+      operationId: ExecuteMCP
+      x-ms-visibility: important
+      security:
+        - api_key: []
+      parameters:
+        - name: request
+          in: body
+          required: true
+          description: MCP Request
+          schema:
+            type: object
+            properties:
+              method:
+                type: string
+                description: Method name
+                x-ms-summary: Method
+              params:
+                type: object
+                description: Method parameters
+                x-ms-summary: Parameters
+              id:
+                type: integer
+                description: Request ID
+                default: 1
+                x-ms-visibility: internal
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+        default:
+          description: Error
+          schema:
+            type: object

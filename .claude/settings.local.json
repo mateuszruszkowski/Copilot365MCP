@@ -8,7 +8,11 @@
       "Bash(powershell.exe:*)",
       "Bash(func azure functionapp publish copilotmcpdevfunc --python)",
       "Bash(curl:*)",
-      "Bash(az functionapp keys list:*)"
+      "Bash(az functionapp keys list:*)",
+      "Bash(az functionapp logs tail:*)",
+      "Bash(az functionapp function list:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

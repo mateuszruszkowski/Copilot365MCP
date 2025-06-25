@@ -1,0 +1,39 @@
+swagger: '2.0'
+info:
+  version: 1.0.0
+  title: Azure DevOps MCP Connector
+  description: Connect to Azure DevOps through MCP
+host: copilotmcpdevfunc.azurewebsites.net
+basePath: /api
+schemes:
+  - https
+paths:
+  /mcp:
+    post:
+      operationId: InvokeMCP
+      summary: Invoke MCP
+      description: Invoke MCP method
+      produces:
+        - application/json
+      consumes:
+        - application/json
+      parameters:
+        - name: x-functions-key
+          in: header
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              method:
+                type: string
+              params:
+                type: object
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: object
