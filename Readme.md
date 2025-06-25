@@ -1,255 +1,209 @@
-# 🚀 COPILOT 365 MCP WORKSHOP - GOTOWY DO URUCHOMIENIA!
+# 🚀 Copilot 365 MCP Workshop
 
-## ✅ STATUS: WSZYSTKIE PLIKI NAPRAWIONE
+## 📚 O warsztacie
 
-**Data naprawy:** 9 czerwca 2025  
-**Pliki zaktualizowane:**
-- ✅ `azure-function-mcp-schema.yaml` - Schema dla Copilot Studio
-- ✅ `mcp-servers/azure-function/package.json` - Usunięto problematyczną dependency
-- ✅ `mcp-servers/desktop-commander/src/index.ts` - Dodano displayName do interface
-- ✅ `start-workshop.ps1` - Dodano ngrok i instrukcje Copilot Studio
-- ✅ `quick-fix.ps1` - Szybka naprawa dependencies
-- ✅ `COPILOT-STUDIO-INSTRUKCJA.md` - Kompletna instrukcja integracji
+Warsztat pokazujący integrację **Microsoft Copilot Studio** z **Model Context Protocol (MCP)** dla automatyzacji zadań DevOps. Uczestnicy nauczą się budować asystenta AI, który może wykonywać operacje w Azure DevOps poprzez protokół MCP.
+
+### 🎯 Czego się nauczysz
+
+- ✅ Konfiguracja serwera MCP dla Azure DevOps
+- ✅ Wdrażanie serwera jako Azure Function
+- ✅ Integracja z Microsoft Copilot Studio
+- ✅ Tworzenie własnych narzędzi MCP
+- ✅ Automatyzacja zadań DevOps przez AI
 
 ---
 
-## 🎯 SZYBKI START
+## 🚀 Szybki start
 
-### Opcja A: Automatyczna naprawa i uruchomienie
+### 1️⃣ Instalacja i konfiguracja
+
+#### Windows
 ```powershell
-# 1. Napraw wszystkie dependencies
-.\quick-fix.ps1
+# Sklonuj repozytorium
+git clone https://github.com/[your-repo]/Copilot365MCP.git
+cd Copilot365MCP
 
-# 2. Uruchom warsztat z ngrok
-.\start-workshop.ps1
+# Skonfiguruj Azure DevOps
+.\setup-azure-devops.ps1
 
-# 3. Skopiuj URL ngrok i postępuj według COPILOT-STUDIO-INSTRUKCJA.md
-```
-
-### Opcja B: Krok po kroku (jeśli Opcja A nie działa)
-```powershell
-# 1. Zatrzymaj procesy
-Get-Process -Name "node","func","python" -ErrorAction SilentlyContinue | Stop-Process -Force
-
-# 2. Azure Function
-cd mcp-servers\azure-function
-npm install
-cd ..\..
-
-# 3. Desktop Commander  
-cd mcp-servers\desktop-commander
-npm install && npm run build
-cd ..\..
-
-# 4. Teams Bot
-cd teams-bot
-npm install
-cd ..
-
-# 5. Python MCP
-cd mcp-servers\local-devops
-pip install -r requirements.txt --upgrade
-cd ..\azure-devops
-pip install -r requirements.txt --upgrade
-cd ..\..
-
-# 6. Uruchom
+# Uruchom warsztat
 .\start-workshop.ps1
 ```
 
----
-
-## 🌐 COPILOT STUDIO INTEGRATION
-
-### Wymagania:
-- Microsoft 365 account
-- Copilot Studio access
-- Agent "DevOps MCP Assistant" utworzony
-
-### Kroki:
-1. **Uruchom serwery:** `.\start-workshop.ps1`
-2. **Skopiuj ngrok URL** z output skryptu
-3. **Postępuj według:** `COPILOT-STUDIO-INSTRUKCJA.md`
-
----
-
-## 🧪 TESTY
-
-### Test 1: Azure Function MCP
+#### Ubuntu/Linux
 ```bash
-curl -X POST http://localhost:7071/api/McpServer \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+# Zainstaluj wymagania
+./setup-ubuntu.sh
+
+# Skonfiguruj Azure DevOps
+./setup-azure-devops.sh
+
+# Uruchom warsztat
+./start-workshop.sh
 ```
 
-**Oczekiwany wynik:**
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "1", 
-  "result": {
-    "tools": [
-      {"name": "deploy_to_azure", "description": "Deploy aplikacji do Azure"},
-      {"name": "check_pipeline_status", "description": "Sprawdź status pipeline"},
-      {"name": "create_work_item", "description": "Utwórz zadanie w Azure DevOps"},
-      {"name": "get_resource_usage", "description": "Sprawdź wykorzystanie zasobów"}
-    ]
-  }
-}
+### 2️⃣ Wymagania
+
+- **Windows 10/11** lub **Ubuntu 20.04+**
+- **Node.js 18+** i **Python 3.8+**
+- **Azure CLI** zainstalowany i skonfigurowany
+- Konto **Azure** z aktywną subskrypcją
+- Organizacja **Azure DevOps** z projektem
+- Dostęp do **Microsoft Copilot Studio**
+
+📖 Szczegółowa instrukcja: [AZURE-DEVOPS-MCP-SETUP.md](./AZURE-DEVOPS-MCP-SETUP.md)
+
+---
+
+## 🤖 Integracja z Copilot Studio
+
+### Wymagania
+- Konto Microsoft 365 z dostępem do Copilot Studio
+- Serwer MCP wdrożony na Azure Functions
+- Personal Access Token z Azure DevOps
+
+### Kroki integracji
+1. **Wdróż serwer MCP** na Azure Functions
+2. **Utwórz Custom Connector** w Copilot Studio
+3. **Skonfiguruj agenta** z narzędziami MCP
+4. **Testuj** w oknie czatu
+
+📖 Pełna instrukcja: [COPILOT-STUDIO-INSTRUKCJA.md](./COPILOT-STUDIO-INSTRUKCJA.md)
+
+---
+
+## 🛠️ Dostępne narzędzia MCP
+
+### Azure DevOps Tools
+
+| Narzędzie | Opis | Parametry |
+|-----------|------|------------|
+| `list_work_items` | Lista zadań z projektu | project, wiql (opcjonalny) |
+| `get_work_item` | Szczegóły zadania | id |
+| `create_work_item` | Tworzenie zadania | project, type, title, description |
+| `update_work_item` | Aktualizacja zadania | id, fields |
+| `check_pipeline_status` | Status pipeline | pipelineId, project |
+| `trigger_pipeline` | Uruchomienie pipeline | pipelineId, branch, parameters |
+
+---
+
+## 📁 Struktura projektu
+
+```
+Copilot365MCP/
+├── 📄 README.md                    # Ten plik
+├── 📄 CLAUDE.md                    # Dokumentacja projektu
+├── 📄 AZURE-DEVOPS-MCP-SETUP.md   # Instrukcja instalacji
+├── 📄 WORKSHOP-TASKS.md            # Zadania i postępy
+├── 📄 setup-azure-devops.ps1       # Konfiguracja Azure DevOps
+├── 📄 setup-ubuntu.sh              # Instalator dla Linux
+├── 📄 start-workshop.ps1           # Uruchamianie warsztatu
+├── 🗂️ azure-setup/                # Skrypty konfiguracji Azure
+├── 🗂️ mcp-servers/                # Implementacje serwerów MCP
+│   ├── 🗂️ azure-devops/           # Serwer Python dla Azure DevOps
+│   ├── 🗂️ azure-function/         # Serwer dla Azure Functions
+│   ├── 🗂️ desktop-commander/      # Kontrola aplikacji desktop
+│   └── 🗂️ local-devops/           # Lokalne narzędzia DevOps
+├── 🗂️ teams-bot/                  # Bot Teams z integracją MCP
+└── 🗂️ docs/                       # Dodatkowa dokumentacja
 ```
 
-### Test 2: Teams Bot
+---
+
+## 💡 Przykłady użycia
+
+### Zarządzanie zadaniami
+```
+User: "Pokaż wszystkie aktywne zadania w projekcie MyProject"
+Copilot: [Wywołuje list_work_items z project="MyProject"]
+
+User: "Utwórz nowe zadanie typu Bug o problemach z logowaniem"
+Copilot: [Wywołuje create_work_item z type="Bug", title="Login issues"]
+```
+
+### Pipeline automation
+```
+User: "Sprawdź status ostatniego builda"
+Copilot: [Wywołuje check_pipeline_status]
+
+User: "Uruchom pipeline deploy-to-staging"
+Copilot: [Wywołuje trigger_pipeline z branch="main"]
+```
+
+---
+
+## 🧪 Testowanie
+
+### Test lokalny serwera MCP
 ```bash
-curl http://localhost:3978/health
+# Python server
+cd mcp-servers/azure-devops
+python src/server.py --debug
+
+# W drugim terminalu
+echo '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}' | python src/server.py
 ```
 
-### Test 3: Copilot Studio
-W agencie napisz: "What tools do you have?"
-
----
-
-## 📁 STRUKTURA PROJEKTU (PO NAPRAWACH)
-
-```
-D:\Workshops\Copilot365MCP\
-├── 📄 azure-function-mcp-schema.yaml       ← Nowy! Schema dla Copilot Studio
-├── 📄 COPILOT-STUDIO-INSTRUKCJA.md        ← Nowy! Instrukcja krok po kroku  
-├── 📄 quick-fix.ps1                        ← Nowy! Szybka naprawa
-├── 📄 start-workshop.ps1                   ← Zaktualizowany! Z ngrok
-├── 🗂️ mcp-servers/
-│   ├── 🗂️ azure-function/                   
-│   │   └── 📄 package.json                 ← Naprawiony! Bez problematycznej dependency
-│   ├── 🗂️ desktop-commander/
-│   │   └── 📄 src/index.ts                 ← Naprawiony! Z displayName
-│   ├── 🗂️ local-devops/
-│   └── 🗂️ azure-devops/
-├── 🗂️ teams-bot/                           ← Naprawiony wcześniej
-└── 🗂️ docs/
-```
-
----
-
-## 🛠️ NARZĘDZIA MCP (DOSTĘPNE W COPILOT STUDIO)
-
-Po integracji będziesz mieć dostęp do:
-
-### 1. **deploy_to_azure**
-- Wdraża aplikacje do środowisk Azure
-- Parametry: environment (dev/staging/prod), version, serviceName
-
-### 2. **check_pipeline_status** 
-- Sprawdza status pipeline w Azure DevOps
-- Parametry: pipelineId, project
-
-### 3. **create_work_item**
-- Tworzy zadania w Azure DevOps
-- Parametry: title, description, type, assignee, priority
-
-### 4. **get_resource_usage**
-- Monitoruje zasoby Azure
-- Parametry: resourceGroup, timeRange
-
----
-
-## 🎮 DEMO SCENARIOS
-
-### Scenario 1: Deployment przez Copilot
-```
-User: "Deploy version 2.1.0 to staging environment"
-Copilot: Uruchamia deploy_to_azure tool
-```
-
-### Scenario 2: Monitoring pipeline
-```  
-User: "Check status of pipeline 12345"
-Copilot: Uruchamia check_pipeline_status tool
-```
-
-### Scenario 3: Tworzenie zadań
-```
-User: "Create a bug report for login issues"
-Copilot: Uruchamia create_work_item tool
-```
-
----
-
-## ❌ TROUBLESHOOTING
-
-### Problem: npm install errors
+### Test Azure Function
 ```powershell
-# Rozwiązanie
-.\quick-fix.ps1
-```
+# Lokalnie
+cd mcp-servers/azure-function
+func start
 
-### Problem: TypeScript compilation errors
-```powershell
-cd mcp-servers\desktop-commander
-npm run build
-# Sprawdź czy displayName został dodany do interface ServiceStatus
+# Test endpoint
+Invoke-RestMethod -Uri "http://localhost:7071/api/mcp" `
+  -Method POST `
+  -Body (@{jsonrpc="2.0"; method="tools/list"; id=1} | ConvertTo-Json)
 ```
-
-### Problem: Port 7071 zajęty
-```powershell
-Get-NetTCPConnection -LocalPort 7071 | ForEach-Object {
-    Stop-Process -Id $_.OwningProcess -Force
-}
-```
-
-### Problem: Copilot Studio nie widzi connectora
-- Sprawdź czy YAML ma tagi "Agentic" i "McpSse"
-- Sprawdź czy Generative Orchestration jest włączona
-- Sprawdź czy URL jest dostępny publicznie (ngrok)
 
 ---
 
-## 🔧 MAINTENANCE
+## 🐛 Rozwiązywanie problemów
 
-### Regularne aktualizacje:
-```powershell
-# Aktualizuj MCP SDK
-npm update @modelcontextprotocol/sdk
+### "PAT token is invalid"
+- Sprawdź czy token nie wygasł
+- Zweryfikuj uprawnienia (Work Items R/W, Build R/E)
+- Upewnij się że URL organizacji jest poprawny
 
-# Aktualizuj Python dependencies  
-pip install -r requirements.txt --upgrade
+### "Python module not found"
+```bash
+cd mcp-servers/azure-devops
+python -m venv venv
+# Windows: .\venv\Scripts\activate
+# Linux: source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Monitoring:
-- Logi Azure Function w terminalu
-- Ngrok dashboard: http://localhost:4040
-- Application Insights (jeśli skonfigurowane)
+### "Function returns 401"
+- Pobierz klucz funkcji z Azure Portal
+- Zaktualizuj Custom Connector w Copilot Studio
+
+📖 Więcej: [AZURE-DEVOPS-MCP-SETUP.md#rozwiązywanie-problemów](./AZURE-DEVOPS-MCP-SETUP.md#rozwiązywanie-problemów)
 
 ---
 
-## 🎯 SUCCESS CRITERIA
+## 📚 Dokumentacja
 
-Po pomyślnej konfiguracji powinieneś widzieć:
-
-```
-🚀 Workshop Start Script - Copilot 365 MCP Integration
-=======================================================
-✅ Azure Function - Running
-   🌐 HTTP 7071 - OK (200)
-✅ Ngrok Tunnel - Running  
-   🌐 https://abc123.ngrok.io → localhost:7071
-✅ Teams Bot - Running
-   🌐 HTTP 3978 - OK (200)
-
-🤖 COPILOT STUDIO INTEGRATION
-==============================
-✅ Publiczny MCP Server URL (dla Copilot Studio):
-   https://abc123.ngrok.io/api/McpServer
-
-🧪 MCP TOOLS TEST
-=================
-✅ MCP Tools dostępne:
-   • deploy_to_azure: Deploy aplikacji do Azure
-   • check_pipeline_status: Sprawdź status pipeline
-   • create_work_item: Utwórz zadanie w Azure DevOps
-   • get_resource_usage: Sprawdź wykorzystanie zasobów
-```
-
-**🎉 Workshop gotowy do użycia z Copilot Studio! 🎉**
+- **[CLAUDE.md](./CLAUDE.md)** - Przegląd projektu i architektury
+- **[AZURE-DEVOPS-MCP-SETUP.md](./AZURE-DEVOPS-MCP-SETUP.md)** - Kompletna instrukcja instalacji
+- **[azure-setup/CLAUDE.md](./azure-setup/CLAUDE.md)** - Dokumentacja skryptów Azure
+- **[mcp-servers/CLAUDE.md](./mcp-servers/CLAUDE.md)** - Opis serwerów MCP
+- **[teams-bot/CLAUDE.md](./teams-bot/CLAUDE.md)** - Integracja z Teams
 
 ---
 
-*Ostatnia aktualizacja: 9 czerwca 2025 | Status: ✅ PRODUCTION READY*
+## 🤝 Wsparcie
+
+- **Issues:** Zgłoś problem w [GitHub Issues](https://github.com/[your-repo]/Copilot365MCP/issues)
+- **Pytania:** Skorzystaj z kanału Teams warsztatu
+- **Dokumentacja MCP:** [modelcontextprotocol.io](https://modelcontextprotocol.io)
+- **Azure DevOps API:** [docs.microsoft.com](https://docs.microsoft.com/azure/devops/rest/)
+
+## 📄 Licencja
+
+MIT License - zobacz plik [LICENSE](./LICENSE)
+
+---
+
+*Ostatnia aktualizacja: 2025-01-25 | Wersja: 1.0.0*

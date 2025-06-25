@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(chmod:*)",
+      "Bash(pwsh ./test-azure-config.ps1)",
+      "Bash(powershell:*)",
+      "Bash(az account:*)",
+      "Bash(az group show:*)",
+      "Bash(az resource list:*)"
     ],
     "deny": []
   }
