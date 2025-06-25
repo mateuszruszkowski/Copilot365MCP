@@ -2,4 +2,4 @@ aiohttp>=3.9.0
 mcp>=1.1.0
 requests>=2.32.0
 python-dotenv>=1.0.0
-azure-devops>=7.2.0
+azure-devops==7.1.0b4

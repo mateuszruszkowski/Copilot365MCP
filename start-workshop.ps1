@@ -6,11 +6,36 @@ param(
     [switch]$SkipPython, # Pomiń Python MCP servers  
     [switch]$SkipTeams, # Pomiń Teams Bot
     [switch]$QuickStart, # Szybkie uruchomienie bez testów
-    [switch]$SkipNgrok  # Pomiń ngrok (dla rozwoju lokalnego)
+    [switch]$SkipNgrok,  # Pomiń ngrok (dla rozwoju lokalnego)
+    [switch]$Repair,  # Uruchom naprawę przed startem
+    [switch]$AllServers  # Uruchom wszystkie serwery (domyślnie tylko Azure DevOps MCP)
 )
 
 Write-Host "🚀 Workshop Start Script - Copilot 365 MCP Integration" -ForegroundColor Green
 Write-Host "=======================================================" -ForegroundColor Green
+
+# Domyślnie uruchom tylko Azure DevOps MCP dla warsztatu
+if (-not $AllServers) {
+    Write-Host "📌 Tryb warsztatowy: Tylko Azure DevOps MCP Server" -ForegroundColor Yellow
+    Write-Host "   Użyj -AllServers aby uruchomić wszystkie komponenty" -ForegroundColor Gray
+    $SkipTeams = $true
+}
+
+# ============================================================================
+# REPAIR MODE
+# ============================================================================
+
+if ($Repair) {
+    Write-Host "`n🔧 Uruchamianie naprawy przed startem..." -ForegroundColor Yellow
+    if (Test-Path ".\repair-workshop.ps1") {
+        & .\repair-workshop.ps1 -Full
+        Write-Host "`n✅ Naprawa zakończona, kontynuacja startu..." -ForegroundColor Green
+    }
+    else {
+        Write-Host "❌ Brak pliku repair-workshop.ps1!" -ForegroundColor Red
+        exit 1
+    }
+}
 
 # ============================================================================
 # PRE-START CHECKS
@@ -56,7 +81,7 @@ if (-not $QuickStart) {
         Write-Host "⚠️ Brak konfiguracji Azure - uruchom najpierw azure-setup" -ForegroundColor Yellow
         $continue = Read-Host "Kontynuować bez Azure? (y/N)"
         if ($continue -ne "y" -and $continue -ne "Y") {
-            Write-Host "❌ Anulowano. Uruchom najpierw: cd azure-setup && .\setup-azure-fixed.ps1" -ForegroundColor Red
+            Write-Host "❌ Anulowano. Uruchom najpierw: cd azure-setup && .\setup-azure.ps1" -ForegroundColor Red
             exit 1
         }
     }
@@ -80,33 +105,41 @@ if (-not $QuickStart) {
         $missingNodeModules | ForEach-Object { Write-Host "   $_" -ForegroundColor White }
         $install = Read-Host "Zainstalować dependencies automatycznie? (Y/n)"
         if ($install -ne "n" -and $install -ne "N") {
-            Write-Host "📦 Instalowanie dependencies..." -ForegroundColor Cyan
-            
-            # Azure Function
-            if (-not (Test-Path "mcp-servers\azure-function\node_modules")) {
-                Write-Host "Installing Azure Function dependencies..." -ForegroundColor Gray
-                cd mcp-servers\azure-function
-                npm install --silent
-                cd ..\..
+            Write-Host "🔧 Uruchamianie naprawy..." -ForegroundColor Cyan
+            if (Test-Path ".\repair-workshop.ps1") {
+                & .\repair-workshop.ps1 -Quick
+                Write-Host "✅ Dependencies naprawione" -ForegroundColor Green
             }
-            
-            # Desktop Commander  
-            if (-not (Test-Path "mcp-servers\desktop-commander\node_modules")) {
-                Write-Host "Installing Desktop Commander dependencies..." -ForegroundColor Gray
-                cd mcp-servers\desktop-commander
-                npm install --silent
-                cd ..\..
+            else {
+                Write-Host "❌ Brak pliku repair-workshop.ps1!" -ForegroundColor Red
+                Write-Host "   Instalacja ręczna..." -ForegroundColor Yellow
+                
+                # Azure Function
+                if (-not (Test-Path "mcp-servers\azure-function\node_modules")) {
+                    Write-Host "Installing Azure Function dependencies..." -ForegroundColor Gray
+                    cd mcp-servers\azure-function
+                    npm install --silent
+                    cd ..\..
+                }
+                
+                # Desktop Commander  
+                if (-not (Test-Path "mcp-servers\desktop-commander\node_modules")) {
+                    Write-Host "Installing Desktop Commander dependencies..." -ForegroundColor Gray
+                    cd mcp-servers\desktop-commander
+                    npm install --silent
+                    cd ..\..
+                }
+                
+                # Teams Bot
+                if (-not (Test-Path "teams-bot\node_modules")) {
+                    Write-Host "Installing Teams Bot dependencies..." -ForegroundColor Gray
+                    cd teams-bot
+                    npm install --silent
+                    cd ..
+                }
+                
+                Write-Host "✅ Dependencies zainstalowane" -ForegroundColor Green
             }
-            
-            # Teams Bot
-            if (-not (Test-Path "teams-bot\node_modules")) {
-                Write-Host "Installing Teams Bot dependencies..." -ForegroundColor Gray
-                cd teams-bot
-                npm install --silent
-                cd ..
-            }
-            
-            Write-Host "✅ Dependencies zainstalowane" -ForegroundColor Green
         }
     }
 }
@@ -165,19 +198,23 @@ Write-Host "`n2️⃣ Uruchamianie serwerów MCP..." -ForegroundColor Cyan
 
 $jobs = @()
 
-# Azure Functions Local
-Write-Host "⚡ Uruchamianie Azure Functions (local)..." -ForegroundColor Yellow
-$azureFunctionJob = Start-Job -ScriptBlock {
-    Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\azure-function"
-    func start
-} -Name "AzureFunction"
-$jobs += @{ Job = $azureFunctionJob; Name = "Azure Function"; Port = 7071 }
+# Azure Functions Local - WYŁĄCZONE DLA WARSZTATU
+if ($AllServers) {
+    Write-Host "⚡ Uruchamianie Azure Functions (local)..." -ForegroundColor Yellow
+    $azureFunctionJob = Start-Job -ScriptBlock {
+        Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\azure-function"
+        func start
+    } -Name "AzureFunction"
+    $jobs += @{ Job = $azureFunctionJob; Name = "Azure Function"; Port = 7071 }
+    
+    Start-Sleep 3
+} else {
+    Write-Host "⏭️  Azure Functions - pominięte (tryb warsztatowy)" -ForegroundColor Gray
+}
 
-Start-Sleep 3
-
-# ngrok Tunnel (dla Copilot Studio)
+# ngrok Tunnel (dla Copilot Studio) - WYŁĄCZONE DLA WARSZTATU  
 $ngrokUrl = $null
-if (-not $SkipNgrok) {
+if (-not $SkipNgrok -and $AllServers) {
     Write-Host "🌐 Uruchamianie ngrok tunnel..." -ForegroundColor Yellow
     try {
         # Sprawdź czy ngrok już działa na porcie 7071
@@ -212,39 +249,44 @@ if (-not $SkipNgrok) {
         Write-Host "❌ Błąd uruchamiania ngrok: $($_.Exception.Message)" -ForegroundColor Red
         $SkipNgrok = $true
     }
+} elseif (-not $AllServers) {
+    Write-Host "⏭️  Ngrok - pominięte (tryb warsztatowy)" -ForegroundColor Gray
 }
 
-# Local DevOps MCP (Python)
-if (-not $SkipPython) {
+# Local DevOps MCP (Python) - WYŁĄCZONE DLA WARSZTATU
+if (-not $SkipPython -and $AllServers) {
     Write-Host "🐍 Uruchamianie Local DevOps MCP..." -ForegroundColor Yellow
     $localDevOpsJob = Start-Job -ScriptBlock {
         Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\local-devops"
         python local-mcp-server.py
     } -Name "LocalDevOps"
     $jobs += @{ Job = $localDevOpsJob; Name = "Local DevOps MCP"; Port = "stdio" }
+    Start-Sleep 2
+} elseif (-not $AllServers) {
+    Write-Host "⏭️  Local DevOps MCP - pominięte (tryb warsztatowy)" -ForegroundColor Gray
 }
 
-Start-Sleep 2
-
-# Desktop Commander MCP (TypeScript)
-Write-Host "💻 Uruchamianie Desktop Commander MCP..." -ForegroundColor Yellow
-$desktopCommanderJob = Start-Job -ScriptBlock {
-    Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\desktop-commander"
-    npm start
-} -Name "DesktopCommander"
-$jobs += @{ Job = $desktopCommanderJob; Name = "Desktop Commander MCP"; Port = "stdio" }
-
-Start-Sleep 2
-
-# Azure DevOps MCP (Python)
-if (-not $SkipPython) {
-    Write-Host "🔧 Uruchamianie Azure DevOps MCP..." -ForegroundColor Yellow
-    $azureDevOpsJob = Start-Job -ScriptBlock {
-        Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\azure-devops"
-        python azure-devops-mcp.py
-    } -Name "AzureDevOps"
-    $jobs += @{ Job = $azureDevOpsJob; Name = "Azure DevOps MCP"; Port = "stdio" }
+# Desktop Commander MCP (TypeScript) - WYŁĄCZONE DLA WARSZTATU
+if ($AllServers) {
+    Write-Host "💻 Uruchamianie Desktop Commander MCP..." -ForegroundColor Yellow
+    $desktopCommanderJob = Start-Job -ScriptBlock {
+        Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\desktop-commander"
+        npm start
+    } -Name "DesktopCommander"
+    $jobs += @{ Job = $desktopCommanderJob; Name = "Desktop Commander MCP"; Port = "stdio" }
+    Start-Sleep 2
+} else {
+    Write-Host "⏭️  Desktop Commander MCP - pominięte (tryb warsztatowy)" -ForegroundColor Gray
 }
+
+# Azure DevOps MCP (Python) - GŁÓWNY SERWER DLA WARSZTATU
+Write-Host "`n🎯 URUCHAMIANIE GŁÓWNEGO SERWERA WARSZTATOWEGO" -ForegroundColor Green
+Write-Host "🔧 Uruchamianie Azure DevOps MCP..." -ForegroundColor Yellow
+$azureDevOpsJob = Start-Job -ScriptBlock {
+    Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\azure-devops"
+    python azure-devops-mcp.py
+} -Name "AzureDevOps"
+$jobs += @{ Job = $azureDevOpsJob; Name = "Azure DevOps MCP"; Port = "stdio" }
 
 Start-Sleep 3
 
@@ -329,29 +371,49 @@ if (-not $SkipTeams) {
 }
 
 # ============================================================================
-# COPILOT STUDIO INTEGRATION INFO
+# WORKSHOP MODE INFO
 # ============================================================================
 
-Write-Host "`n🤖 COPILOT STUDIO INTEGRATION" -ForegroundColor Green
-Write-Host "==============================" -ForegroundColor Green
-
-if ($ngrokUrl) {
-    Write-Host "✅ Publiczny MCP Server URL (dla Copilot Studio):" -ForegroundColor Green
-    Write-Host "   $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+if (-not $AllServers) {
+    Write-Host "`n🎓 TRYB WARSZTATOWY - AZURE DEVOPS MCP" -ForegroundColor Green
+    Write-Host "======================================" -ForegroundColor Green
+    
+    Write-Host "✅ Uruchomiony serwer:" -ForegroundColor Green
+    Write-Host "   • Azure DevOps MCP Server (Python)" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "📋 KONFIGURACJA COPILOT STUDIO:" -ForegroundColor Yellow
-    Write-Host "   1. Otwórz swojego agenta 'DevOps MCP Assistant'" -ForegroundColor White
-    Write-Host "   2. Idź do: Settings → Actions → Model Context Protocol" -ForegroundColor White
-    Write-Host "   3. Dodaj MCP Server:" -ForegroundColor White
-    Write-Host "      URL: $ngrokUrl/api/McpServer" -ForegroundColor Cyan
-    Write-Host "      Method: POST" -ForegroundColor White
-    Write-Host "   4. Test: Napisz 'What tools do you have?'" -ForegroundColor White
+    Write-Host "📋 MOŻLIWOŚCI SERWERA:" -ForegroundColor Yellow
+    Write-Host "   • Zarządzanie work items w Azure DevOps" -ForegroundColor White
+    Write-Host "   • Uruchamianie i monitorowanie pipeline'ów" -ForegroundColor White
+    Write-Host "   • Przeglądanie repozytoriów i commitów" -ForegroundColor White
+    Write-Host "   • Integracja z Claude Desktop lub VS Code" -ForegroundColor White
+    Write-Host ""
+    Write-Host "🔧 WYMAGANA KONFIGURACJA:" -ForegroundColor Yellow
+    Write-Host "   1. Plik .env w mcp-servers/azure-devops/" -ForegroundColor White
+    Write-Host "   2. Personal Access Token (PAT) z Azure DevOps" -ForegroundColor White
+    Write-Host "   3. URL organizacji i nazwa projektu" -ForegroundColor White
 } else {
-    Write-Host "⚠️ Ngrok nie działa - dla Copilot Studio potrzebujesz publiczny URL" -ForegroundColor Yellow
-    Write-Host "   Opcje:" -ForegroundColor White
-    Write-Host "   • Zainstaluj ngrok: https://ngrok.com/download" -ForegroundColor Cyan
-    Write-Host "   • Użyj Azure Function w chmurze" -ForegroundColor Cyan
-    Write-Host "   • Test lokalnie: curl http://localhost:7071/api/McpServer" -ForegroundColor Cyan
+    # Oryginalna sekcja Copilot Studio
+    Write-Host "`n🤖 COPILOT STUDIO INTEGRATION" -ForegroundColor Green
+    Write-Host "==============================" -ForegroundColor Green
+    
+    if ($ngrokUrl) {
+        Write-Host "✅ Publiczny MCP Server URL (dla Copilot Studio):" -ForegroundColor Green
+        Write-Host "   $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "📋 KONFIGURACJA COPILOT STUDIO:" -ForegroundColor Yellow
+        Write-Host "   1. Otwórz swojego agenta 'DevOps MCP Assistant'" -ForegroundColor White
+        Write-Host "   2. Idź do: Settings → Actions → Model Context Protocol" -ForegroundColor White
+        Write-Host "   3. Dodaj MCP Server:" -ForegroundColor White
+        Write-Host "      URL: $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+        Write-Host "      Method: POST" -ForegroundColor White
+        Write-Host "   4. Test: Napisz 'What tools do you have?'" -ForegroundColor White
+    } else {
+        Write-Host "⚠️ Ngrok nie działa - dla Copilot Studio potrzebujesz publiczny URL" -ForegroundColor Yellow
+        Write-Host "   Opcje:" -ForegroundColor White
+        Write-Host "   • Zainstaluj ngrok: https://ngrok.com/download" -ForegroundColor Cyan
+        Write-Host "   • Użyj Azure Function w chmurze" -ForegroundColor Cyan
+        Write-Host "   • Test lokalnie: curl http://localhost:7071/api/McpServer" -ForegroundColor Cyan
+    }
 }
 
 # ============================================================================
@@ -368,73 +430,100 @@ foreach ($jobInfo in $jobs) {
     Write-Host "   $status $($jobInfo.Name) ($portInfo)" -ForegroundColor White
 }
 
-Write-Host "`n🔗 Endpoints:" -ForegroundColor Cyan
-Write-Host "   • Azure Function (local): http://localhost:7071/api/McpServer" -ForegroundColor White
-if ($ngrokUrl) {
-    Write-Host "   • Azure Function (public): $ngrokUrl/api/McpServer" -ForegroundColor Cyan
-    Write-Host "   • Ngrok Dashboard: http://localhost:4040" -ForegroundColor White
-}
-if (-not $SkipTeams) {
-    Write-Host "   • Teams Bot Health: http://localhost:3978/health" -ForegroundColor White
-    Write-Host "   • Teams Bot Config: http://localhost:3978/api/config" -ForegroundColor White
-    Write-Host "   • MCP Test: http://localhost:3978/api/mcp/test" -ForegroundColor White
+if (-not $AllServers) {
+    Write-Host "`n🔗 Tryb warsztatowy - Azure DevOps MCP:" -ForegroundColor Cyan
+    Write-Host "   • Serwer: Azure DevOps MCP (stdio)" -ForegroundColor White
+    Write-Host "   • Integracja: Claude Desktop / VS Code" -ForegroundColor White
+} else {
+    Write-Host "`n🔗 Endpoints:" -ForegroundColor Cyan
+    Write-Host "   • Azure Function (local): http://localhost:7071/api/McpServer" -ForegroundColor White
+    if ($ngrokUrl) {
+        Write-Host "   • Azure Function (public): $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+        Write-Host "   • Ngrok Dashboard: http://localhost:4040" -ForegroundColor White
+    }
+    if (-not $SkipTeams) {
+        Write-Host "   • Teams Bot Health: http://localhost:3978/health" -ForegroundColor White
+        Write-Host "   • Teams Bot Config: http://localhost:3978/api/config" -ForegroundColor White
+        Write-Host "   • MCP Test: http://localhost:3978/api/mcp/test" -ForegroundColor White
+    }
 }
 
 Write-Host "`n🎯 Workshop Commands:" -ForegroundColor Cyan
-Write-Host "   • Test Azure: curl http://localhost:7071/api/McpServer" -ForegroundColor White
-if ($ngrokUrl) {
-    Write-Host "   • Test Public: curl $ngrokUrl/api/McpServer" -ForegroundColor Cyan
-}
-if (-not $SkipTeams) {
-    Write-Host "   • Test Teams: curl http://localhost:3978/health" -ForegroundColor White
+if (-not $AllServers) {
+    Write-Host "   • Sprawdź status: Get-Job" -ForegroundColor White
+    Write-Host "   • Logi serwera: Receive-Job AzureDevOps" -ForegroundColor White
+    Write-Host "   • Zatrzymaj: Stop-Job AzureDevOps" -ForegroundColor White
+} else {
+    Write-Host "   • Test Azure: curl http://localhost:7071/api/McpServer" -ForegroundColor White
+    if ($ngrokUrl) {
+        Write-Host "   • Test Public: curl $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+    }
+    if (-not $SkipTeams) {
+        Write-Host "   • Test Teams: curl http://localhost:3978/health" -ForegroundColor White
+    }
 }
 Write-Host "   • Monitor Jobs: Get-Job" -ForegroundColor White
 Write-Host "   • Stop All: Get-Job | Stop-Job" -ForegroundColor White
 
 Write-Host "`n💡 VS Code Commands:" -ForegroundColor Cyan
 Write-Host "   • Open Project: code Copilot365MCP.code-workspace" -ForegroundColor White
-Write-Host "   • Debug Azure Function: F5 → 'Debug Azure Functions'" -ForegroundColor White
-Write-Host "   • Debug Teams Bot: F5 → 'Debug Teams Bot'" -ForegroundColor White
+if (-not $AllServers) {
+    Write-Host "   • Debug Azure DevOps MCP: F5 → 'Debug Python MCP'" -ForegroundColor White
+} else {
+    Write-Host "   • Debug Azure Function: F5 → 'Debug Azure Functions'" -ForegroundColor White
+    Write-Host "   • Debug Teams Bot: F5 → 'Debug Teams Bot'" -ForegroundColor White
+}
 
 Write-Host "`n🎮 Demo Scenarios:" -ForegroundColor Cyan
-Write-Host "   1. Test MCP Tools: [POST] http://localhost:7071/api/McpServer" -ForegroundColor White
-Write-Host "      Body: {\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}" -ForegroundColor Gray
-if ($ngrokUrl) {
-    Write-Host "   2. Copilot Studio: Użyj URL $ngrokUrl/api/McpServer" -ForegroundColor Cyan
-}
-if (-not $SkipTeams) {
-    Write-Host "   3. Teams Bot Help: Send 'help' in Teams" -ForegroundColor White
-    Write-Host "   4. Deploy Demo: Send 'deploy v1.0.0 do staging' in Teams" -ForegroundColor White
+if (-not $AllServers) {
+    Write-Host "   1. Konfiguracja Claude Desktop:" -ForegroundColor White
+    Write-Host "      • Dodaj serwer MCP w ustawieniach" -ForegroundColor Gray
+    Write-Host "      • Command: python" -ForegroundColor Gray
+    Write-Host "      • Args: D:\\Workshops\\Copilot365MCP\\mcp-servers\\azure-devops\\azure-devops-mcp.py" -ForegroundColor Gray
+    Write-Host "   2. Test w Claude: 'List my work items'" -ForegroundColor White
+    Write-Host "   3. Utwórz task: 'Create a new bug about login issue'" -ForegroundColor White
+} else {
+    Write-Host "   1. Test MCP Tools: [POST] http://localhost:7071/api/McpServer" -ForegroundColor White
+    Write-Host "      Body: {\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}" -ForegroundColor Gray
+    if ($ngrokUrl) {
+        Write-Host "   2. Copilot Studio: Użyj URL $ngrokUrl/api/McpServer" -ForegroundColor Cyan
+    }
+    if (-not $SkipTeams) {
+        Write-Host "   3. Teams Bot Help: Send 'help' in Teams" -ForegroundColor White
+        Write-Host "   4. Deploy Demo: Send 'deploy v1.0.0 do staging' in Teams" -ForegroundColor White
+    }
 }
 
 # ============================================================================
 # MCP TOOLS TEST
 # ============================================================================
 
-Write-Host "`n🧪 MCP TOOLS TEST" -ForegroundColor Yellow
-Write-Host "=================" -ForegroundColor Yellow
-
-if ($ngrokUrl -or (Test-NetConnection -ComputerName "localhost" -Port 7071 -InformationLevel Quiet)) {
-    $testUrl = if ($ngrokUrl) { "$ngrokUrl/api/McpServer" } else { "http://localhost:7071/api/McpServer" }
+if ($AllServers) {
+    Write-Host "`n🧪 MCP TOOLS TEST" -ForegroundColor Yellow
+    Write-Host "=================" -ForegroundColor Yellow
     
-    Write-Host "Testing MCP tools list..." -ForegroundColor Gray
-    try {
-        $mcpTest = Invoke-RestMethod -Uri $testUrl -Method POST -ContentType "application/json" -Body '{"jsonrpc":"2.0","method":"tools/list","id":1}' -TimeoutSec 10
+    if ($ngrokUrl -or (Test-NetConnection -ComputerName "localhost" -Port 7071 -InformationLevel Quiet)) {
+        $testUrl = if ($ngrokUrl) { "$ngrokUrl/api/McpServer" } else { "http://localhost:7071/api/McpServer" }
         
-        if ($mcpTest.result -and $mcpTest.result.tools) {
-            Write-Host "✅ MCP Tools dostępne:" -ForegroundColor Green
-            foreach ($tool in $mcpTest.result.tools) {
-                Write-Host "   • $($tool.name): $($tool.description)" -ForegroundColor White
+        Write-Host "Testing MCP tools list..." -ForegroundColor Gray
+        try {
+            $mcpTest = Invoke-RestMethod -Uri $testUrl -Method POST -ContentType "application/json" -Body '{"jsonrpc":"2.0","method":"tools/list","id":1}' -TimeoutSec 10
+            
+            if ($mcpTest.result -and $mcpTest.result.tools) {
+                Write-Host "✅ MCP Tools dostępne:" -ForegroundColor Green
+                foreach ($tool in $mcpTest.result.tools) {
+                    Write-Host "   • $($tool.name): $($tool.description)" -ForegroundColor White
+                }
+            } else {
+                Write-Host "⚠️ MCP odpowiada ale brak tools" -ForegroundColor Yellow
             }
-        } else {
-            Write-Host "⚠️ MCP odpowiada ale brak tools" -ForegroundColor Yellow
         }
+        catch {
+            Write-Host "❌ Błąd testowania MCP: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "⚠️ Azure Function nie odpowiada - pomiń test MCP" -ForegroundColor Yellow
     }
-    catch {
-        Write-Host "❌ Błąd testowania MCP: $($_.Exception.Message)" -ForegroundColor Red
-    }
-} else {
-    Write-Host "⚠️ Azure Function nie odpowiada - pomiń test MCP" -ForegroundColor Yellow
 }
 
 # ============================================================================
@@ -512,7 +601,11 @@ if ($cleanup -ne "n" -and $cleanup -ne "N") {
 
 Write-Host "`n🎉 Workshop Script zakończony!" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
-Write-Host "💡 Aby uruchomić ponownie: .\start-workshop.ps1" -ForegroundColor Cyan
+Write-Host "💡 Komendy:" -ForegroundColor Cyan
+Write-Host "   • Uruchom ponownie: .\start-workshop.ps1" -ForegroundColor White
+Write-Host "   • Napraw problemy: .\repair-workshop.ps1" -ForegroundColor White
+Write-Host "   • Szybki start: .\start-workshop.ps1 -QuickStart" -ForegroundColor White
+Write-Host "   • Z naprawą: .\start-workshop.ps1 -Repair" -ForegroundColor White
 if ($ngrokUrl) {
     Write-Host "🌐 Zapamiętaj URL dla Copilot Studio: $ngrokUrl/api/McpServer" -ForegroundColor Yellow
 }

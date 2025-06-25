@@ -147,25 +147,18 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 fi
 
-# Tworzenie struktury katalogów
-print_status "Tworzę strukturę katalogów projektu..."
-mkdir -p ~/Workshops
-cd ~/Workshops
-
-# Klonowanie repozytorium (jeśli jeszcze nie istnieje)
-if [ ! -d "Copilot365MCP" ]; then
-    print_status "Klonuję repozytorium warsztatu..."
-    git clone https://github.com/[your-repo]/Copilot365MCP.git
-    cd Copilot365MCP
-else
-    print_warning "Repozytorium już istnieje"
-    cd Copilot365MCP
-    git pull origin main
+# Sprawdzenie czy jesteśmy w katalogu projektu
+if [ ! -f "CLAUDE.md" ] || [ ! -d "mcp-servers" ]; then
+    print_error "Ten skrypt musi być uruchomiony z głównego katalogu projektu Copilot365MCP!"
+    print_status "Upewnij się, że jesteś w katalogu z plikiem CLAUDE.md"
+    exit 1
 fi
+
+print_success "Instaluję w katalogu: $(pwd)"
 
 # Instalacja zależności Python dla Azure DevOps MCP
 print_status "Konfiguruję środowisko Python dla Azure DevOps MCP..."
-cd mcp-servers/azure-devops
+cd "$(pwd)/mcp-servers/azure-devops"
 
 # Tworzenie wirtualnego środowiska
 python3 -m venv venv
@@ -181,18 +174,18 @@ else
 fi
 
 deactivate
-cd ../..
+cd "$(dirname "$(dirname "$(pwd)")")"
 
 # Instalacja zależności Node.js dla Azure Function
 print_status "Instaluję zależności Node.js dla Azure Function..."
-cd mcp-servers/azure-function
+cd "$(pwd)/mcp-servers/azure-function"
 if [ -f "package.json" ]; then
     npm install
     print_success "Zależności Node.js zainstalowane"
 else
     print_warning "Brak pliku package.json"
 fi
-cd ../..
+cd "$(dirname "$(dirname "$(pwd)")")"
 
 # Tworzenie skryptu uruchomieniowego dla Linux
 print_status "Tworzę skrypt uruchomieniowy dla Linux..."
