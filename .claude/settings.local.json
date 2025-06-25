@@ -6,7 +6,9 @@
       "Bash(az functionapp show:*)",
       "Bash(az storage account show:*)",
       "Bash(powershell.exe:*)",
-      "Bash(func azure functionapp publish copilotmcpdevfunc --python)"
+      "Bash(func azure functionapp publish copilotmcpdevfunc --python)",
+      "Bash(curl:*)",
+      "Bash(az functionapp keys list:*)"
     ],
     "deny": []
   }
