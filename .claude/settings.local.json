@@ -12,7 +12,8 @@
       "Bash(az functionapp logs tail:*)",
       "Bash(az functionapp function list:*)",
       "Bash(mkdir:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(gh repo clone:*)"
     ],
     "deny": []
   }
