@@ -8,6 +8,8 @@ param(
     [switch]$QuickStart, # Szybkie uruchomienie bez testów
     [switch]$SkipNgrok,  # Pomiń ngrok (dla rozwoju lokalnego)
     [switch]$Repair,  # Uruchom naprawę przed startem
+    [switch]$RepairOnly,  # Tylko napraw, nie uruchamiaj
+    [switch]$CheckOnly,  # Tylko sprawdź status
     [switch]$AllServers  # Uruchom wszystkie serwery (domyślnie tylko Azure DevOps MCP)
 )
 
@@ -22,19 +24,244 @@ if (-not $AllServers) {
 }
 
 # ============================================================================
-# REPAIR MODE
+# FUNKCJE POMOCNICZE
+# ============================================================================
+
+function Stop-WorkshopProcesses {
+    Write-Host "🛑 Zatrzymywanie procesów..." -ForegroundColor Yellow
+    
+    # Zatrzymaj procesy na konkretnych portach
+    $ports = @(7071, 3978, 5000, 3000)
+    foreach ($port in $ports) {
+        try {
+            $tcpConnection = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+            if ($tcpConnection) {
+                $pid = $tcpConnection.OwningProcess
+                Write-Host "   Zatrzymywanie procesu na porcie $port (PID: $pid)"
+                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch {
+            # Port wolny
+        }
+    }
+    
+    # Zatrzymaj wszystkie procesy node, func, python
+    Get-Process -Name "node", "func", "python" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    
+    Write-Host "✅ Procesy zatrzymane" -ForegroundColor Green
+}
+
+function Test-WorkshopComponents {
+    Write-Host "`n🔍 Sprawdzanie statusu komponentów..." -ForegroundColor Cyan
+    
+    $components = @{
+        "Azure Function" = @{
+            Path = "mcp-servers\azure-function"
+            CheckFiles = @("package.json", "node_modules", "McpServer\index.js")
+        }
+        "Desktop Commander" = @{
+            Path = "mcp-servers\desktop-commander"
+            CheckFiles = @("package.json", "node_modules", "tsconfig.json", "dist\index.js")
+        }
+        "Teams Bot" = @{
+            Path = "teams-bot"
+            CheckFiles = @("package.json", "node_modules", "src\index.js")
+        }
+        "Azure DevOps MCP" = @{
+            Path = "mcp-servers\azure-devops"
+            CheckFiles = @("requirements.txt", "azure-devops-mcp.py")
+        }
+        "Local DevOps MCP" = @{
+            Path = "mcp-servers\local-devops"
+            CheckFiles = @("requirements.txt", "local-mcp-server.py")
+        }
+    }
+    
+    $statusOK = $true
+    foreach ($component in $components.GetEnumerator()) {
+        Write-Host "`n📦 $($component.Key):" -ForegroundColor Yellow
+        $componentOK = $true
+        
+        foreach ($file in $component.Value.CheckFiles) {
+            $fullPath = Join-Path $component.Value.Path $file
+            if (Test-Path $fullPath) {
+                Write-Host "   ✅ $file" -ForegroundColor Green
+            }
+            else {
+                Write-Host "   ❌ $file - BRAK" -ForegroundColor Red
+                $componentOK = $false
+                $statusOK = $false
+            }
+        }
+        
+        if ($componentOK) {
+            Write-Host "   ✅ Status: OK" -ForegroundColor Green
+        }
+        else {
+            Write-Host "   ❌ Status: Wymaga naprawy" -ForegroundColor Red
+        }
+    }
+    
+    return $statusOK
+}
+
+function Repair-WorkshopComponents {
+    param([switch]$Quick)
+    
+    Write-Host "`n🔧 Naprawianie komponentów warsztatu..." -ForegroundColor Cyan
+    
+    # Azure Function
+    Write-Host "`n⚡ Naprawianie Azure Function..." -ForegroundColor Yellow
+    Push-Location "mcp-servers\azure-function"
+    if (Test-Path "package.json") {
+        if (-not $Quick) {
+            Remove-Item "node_modules" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "package-lock.json" -Force -ErrorAction SilentlyContinue
+        }
+        npm install
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Azure Function - OK" -ForegroundColor Green
+        } else {
+            Write-Host "❌ Azure Function - ERROR" -ForegroundColor Red
+        }
+    }
+    Pop-Location
+    
+    # Desktop Commander
+    Write-Host "`n💻 Naprawianie Desktop Commander..." -ForegroundColor Yellow
+    Push-Location "mcp-servers\desktop-commander"
+    if (Test-Path "package.json") {
+        if (-not $Quick) {
+            Remove-Item "node_modules" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "package-lock.json" -Force -ErrorAction SilentlyContinue
+            Remove-Item "dist" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        npm install
+        if ($LASTEXITCODE -eq 0) {
+            npm run build
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Desktop Commander - OK" -ForegroundColor Green
+            } else {
+                Write-Host "❌ Desktop Commander build - ERROR" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "❌ Desktop Commander install - ERROR" -ForegroundColor Red
+        }
+    }
+    Pop-Location
+    
+    # Teams Bot
+    Write-Host "`n🤖 Naprawianie Teams Bot..." -ForegroundColor Yellow
+    Push-Location "teams-bot"
+    if (Test-Path "package.json") {
+        if (-not $Quick) {
+            Remove-Item "node_modules" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "package-lock.json" -Force -ErrorAction SilentlyContinue
+        }
+        npm install
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Teams Bot - OK" -ForegroundColor Green
+        } else {
+            Write-Host "❌ Teams Bot - ERROR" -ForegroundColor Red
+        }
+    }
+    Pop-Location
+    
+    # Python components
+    Write-Host "`n🐍 Naprawianie Python dependencies..." -ForegroundColor Yellow
+    
+    # Upgrade pip first
+    python -m pip install --upgrade pip --quiet
+    
+    # Local DevOps
+    Push-Location "mcp-servers\local-devops"
+    if (Test-Path "requirements.txt") {
+        pip install -r requirements.txt --upgrade --quiet
+        Write-Host "✅ Local DevOps MCP - OK" -ForegroundColor Green
+    }
+    Pop-Location
+    
+    # Azure DevOps
+    Push-Location "mcp-servers\azure-devops"
+    if (Test-Path "requirements.txt") {
+        pip install -r requirements.txt --upgrade --quiet
+        Write-Host "✅ Azure DevOps MCP - OK" -ForegroundColor Green
+    }
+    Pop-Location
+    
+    Write-Host "`n✅ Naprawa zakończona!" -ForegroundColor Green
+}
+
+# ============================================================================
+# CHECK ONLY MODE
+# ============================================================================
+
+if ($CheckOnly) {
+    Write-Host "`n📊 Tryb sprawdzania statusu" -ForegroundColor Cyan
+    
+    $status = Test-WorkshopComponents
+    
+    # Sprawdź pliki konfiguracyjne
+    Write-Host "`n📋 Sprawdzanie plików konfiguracyjnych..." -ForegroundColor Cyan
+    
+    $configFiles = @(
+        @{Path = ".env"; Required = $false},
+        @{Path = "ai-config.env"; Required = $false},
+        @{Path = "teams-bot\.env"; Required = $false},
+        @{Path = "mcp-servers\local-devops\.env"; Required = $false},
+        @{Path = "mcp-servers\azure-devops\.env"; Required = $true}
+    )
+    
+    foreach ($config in $configFiles) {
+        if (Test-Path $config.Path) {
+            Write-Host "✅ $($config.Path) - istnieje" -ForegroundColor Green
+        }
+        elseif ($config.Required) {
+            Write-Host "❌ $($config.Path) - BRAK (wymagany)" -ForegroundColor Red
+            $status = $false
+        }
+        else {
+            Write-Host "⚠️  $($config.Path) - brak (opcjonalny)" -ForegroundColor Yellow
+        }
+    }
+    
+    if ($status) {
+        Write-Host "`n✅ Wszystkie komponenty są gotowe!" -ForegroundColor Green
+    }
+    else {
+        Write-Host "`n❌ Niektóre komponenty wymagają naprawy" -ForegroundColor Red
+        Write-Host "   Uruchom: .\start-workshop.ps1 -RepairOnly" -ForegroundColor Yellow
+    }
+    exit
+}
+
+# ============================================================================
+# REPAIR ONLY MODE
+# ============================================================================
+
+if ($RepairOnly) {
+    Write-Host "`n🔧 Tryb naprawy" -ForegroundColor Cyan
+    
+    Stop-WorkshopProcesses
+    Repair-WorkshopComponents
+    
+    Write-Host "`n🎉 Naprawa zakończona!" -ForegroundColor Green
+    Write-Host "Uruchom ponownie: .\start-workshop.ps1" -ForegroundColor Yellow
+    exit
+}
+
+# ============================================================================
+# REPAIR MODE (przed startem)
 # ============================================================================
 
 if ($Repair) {
     Write-Host "`n🔧 Uruchamianie naprawy przed startem..." -ForegroundColor Yellow
-    if (Test-Path ".\repair-workshop.ps1") {
-        & .\repair-workshop.ps1 -Full
-        Write-Host "`n✅ Naprawa zakończona, kontynuacja startu..." -ForegroundColor Green
-    }
-    else {
-        Write-Host "❌ Brak pliku repair-workshop.ps1!" -ForegroundColor Red
-        exit 1
-    }
+    
+    Stop-WorkshopProcesses
+    Repair-WorkshopComponents -Quick
+    
+    Write-Host "`n✅ Naprawa zakończona, kontynuacja startu..." -ForegroundColor Green
 }
 
 # ============================================================================
@@ -106,40 +333,8 @@ if (-not $QuickStart) {
         $install = Read-Host "Zainstalować dependencies automatycznie? (Y/n)"
         if ($install -ne "n" -and $install -ne "N") {
             Write-Host "🔧 Uruchamianie naprawy..." -ForegroundColor Cyan
-            if (Test-Path ".\repair-workshop.ps1") {
-                & .\repair-workshop.ps1 -Quick
-                Write-Host "✅ Dependencies naprawione" -ForegroundColor Green
-            }
-            else {
-                Write-Host "❌ Brak pliku repair-workshop.ps1!" -ForegroundColor Red
-                Write-Host "   Instalacja ręczna..." -ForegroundColor Yellow
-                
-                # Azure Function
-                if (-not (Test-Path "mcp-servers\azure-function\node_modules")) {
-                    Write-Host "Installing Azure Function dependencies..." -ForegroundColor Gray
-                    cd mcp-servers\azure-function
-                    npm install --silent
-                    cd ..\..
-                }
-                
-                # Desktop Commander  
-                if (-not (Test-Path "mcp-servers\desktop-commander\node_modules")) {
-                    Write-Host "Installing Desktop Commander dependencies..." -ForegroundColor Gray
-                    cd mcp-servers\desktop-commander
-                    npm install --silent
-                    cd ..\..
-                }
-                
-                # Teams Bot
-                if (-not (Test-Path "teams-bot\node_modules")) {
-                    Write-Host "Installing Teams Bot dependencies..." -ForegroundColor Gray
-                    cd teams-bot
-                    npm install --silent
-                    cd ..
-                }
-                
-                Write-Host "✅ Dependencies zainstalowane" -ForegroundColor Green
-            }
+            Repair-WorkshopComponents -Quick
+            Write-Host "✅ Dependencies naprawione" -ForegroundColor Green
         }
     }
 }
@@ -282,6 +477,30 @@ if ($AllServers) {
 # Azure DevOps MCP (Python) - GŁÓWNY SERWER DLA WARSZTATU
 Write-Host "`n🎯 URUCHAMIANIE GŁÓWNEGO SERWERA WARSZTATOWEGO" -ForegroundColor Green
 Write-Host "🔧 Uruchamianie Azure DevOps MCP..." -ForegroundColor Yellow
+
+# Sprawdź czy istnieje Azure Function deployment
+$functionAppName = $null
+$deployedFunctionUrl = $null
+
+if (Test-Path "azure-setup\ai-config.env") {
+    $config = Get-Content "azure-setup\ai-config.env" | ConvertFrom-StringData
+    $functionAppName = $config.FUNCTION_APP_NAME
+    if ($functionAppName) {
+        Write-Host "🔍 Znaleziono Azure Function: $functionAppName" -ForegroundColor Cyan
+        
+        # Sprawdź czy funkcja istnieje w Azure
+        try {
+            $testUrl = "https://$functionAppName.azurewebsites.net/api/mcp"
+            $response = Invoke-WebRequest -Uri $testUrl -Method OPTIONS -TimeoutSec 5 -ErrorAction Stop
+            $deployedFunctionUrl = $testUrl
+            Write-Host "✅ Azure Function jest aktywna: $deployedFunctionUrl" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "⚠️  Azure Function nie odpowiada - może wymagać deployment" -ForegroundColor Yellow
+        }
+    }
+}
+
 $azureDevOpsJob = Start-Job -ScriptBlock {
     Set-Location "D:\Workshops\Copilot365MCP\mcp-servers\azure-devops"
     python azure-devops-mcp.py
@@ -391,6 +610,76 @@ if (-not $AllServers) {
     Write-Host "   1. Plik .env w mcp-servers/azure-devops/" -ForegroundColor White
     Write-Host "   2. Personal Access Token (PAT) z Azure DevOps" -ForegroundColor White
     Write-Host "   3. URL organizacji i nazwa projektu" -ForegroundColor White
+    
+    # Azure Function deployment info
+    if ($deployedFunctionUrl) {
+        Write-Host "`n🚀 AZURE FUNCTION DEPLOYMENT" -ForegroundColor Green
+        Write-Host "===========================" -ForegroundColor Green
+        Write-Host "✅ Function URL: $deployedFunctionUrl" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "📋 DEPLOYMENT AZURE FUNCTION:" -ForegroundColor Yellow
+        Write-Host "   1. Przejdź do: mcp-servers/azure-devops-function/" -ForegroundColor White
+        Write-Host "   2. Uruchom: func azure functionapp publish $functionAppName --python" -ForegroundColor White
+        Write-Host ""
+        Write-Host "🔗 GENEROWANIE YAML DLA COPILOT STUDIO:" -ForegroundColor Yellow
+        
+        # Pobierz Function Key
+        Write-Host "   Pobieranie Function Key..." -ForegroundColor Gray
+        try {
+            $resourceGroup = if ($config.RESOURCE_GROUP) { $config.RESOURCE_GROUP } else { "copilot-mcp-workshop-rg" }
+            $functionKey = az functionapp keys list --name $functionAppName --resource-group $resourceGroup --query "functionKeys.default" -o tsv 2>$null
+            if ($functionKey) {
+                Write-Host "   ✅ Function Key pobrany" -ForegroundColor Green
+                
+                # Generuj YAML
+                Write-Host "`n   Generowanie copilot-custom-connection.yaml..." -ForegroundColor Cyan
+                & "$PSScriptRoot\scripts\generate-copilot-yaml.ps1" -FunctionAppName $functionAppName -FunctionKey $functionKey -OutputPath "copilot-custom-connection.yaml"
+                
+                Write-Host "`n🎯 NASTĘPNE KROKI:" -ForegroundColor Green
+                Write-Host "   1. Deploy funkcji: cd mcp-servers\azure-devops-function" -ForegroundColor White
+                Write-Host "                     func azure functionapp publish $functionAppName --python" -ForegroundColor White
+                Write-Host "   2. Import do Copilot Studio: copilot-custom-connection.yaml" -ForegroundColor White
+                Write-Host "   3. Test w Copilot: 'What tools do you have?'" -ForegroundColor White
+            }
+            else {
+                Write-Host "   ⚠️  Nie udało się pobrać Function Key" -ForegroundColor Yellow
+                Write-Host "   Pobierz ręcznie z Azure Portal" -ForegroundColor Yellow
+            }
+        }
+        catch {
+            Write-Host "   ⚠️  Błąd pobierania Function Key: $_" -ForegroundColor Yellow
+        }
+    }
+    elseif ($functionAppName) {
+        Write-Host "`n⚠️  AZURE FUNCTION WYMAGA UTWORZENIA LUB DEPLOYMENT" -ForegroundColor Yellow
+        Write-Host "   Function App: $functionAppName" -ForegroundColor White
+        
+        # Sprawdź czy resource group istnieje
+        $resourceGroup = if ($config.RESOURCE_GROUP) { $config.RESOURCE_GROUP } else { "copilot-mcp-workshop-rg" }
+        $rgExists = az group exists --name $resourceGroup 2>$null
+        
+        if ($rgExists -eq "true") {
+            Write-Host "`n   Resource Group istnieje. Sprawdzam funkcję..." -ForegroundColor Gray
+            $funcExists = az functionapp show --name $functionAppName --resource-group $resourceGroup 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "   ✅ Funkcja istnieje - wymaga tylko deployment" -ForegroundColor Green
+                Write-Host "`n   Deploy: cd mcp-servers\azure-devops-function" -ForegroundColor White
+                Write-Host "          .\deploy.ps1" -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "   ❌ Funkcja nie istnieje - uruchom ponownie setup" -ForegroundColor Red
+                Write-Host "`n   Napraw: cd azure-setup && .\setup-azure.ps1" -ForegroundColor Yellow
+            }
+        }
+        else {
+            Write-Host "   ❌ Resource Group nie istnieje - najpierw uruchom setup" -ForegroundColor Red
+            Write-Host "`n   Setup: cd azure-setup && .\setup-azure.ps1" -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "`n💡 WSKAZÓWKA: Uruchom azure-setup aby stworzyć Azure Function" -ForegroundColor Yellow
+        Write-Host "   cd azure-setup && .\setup-azure.ps1" -ForegroundColor White
+    }
 } else {
     # Oryginalna sekcja Copilot Studio
     Write-Host "`n🤖 COPILOT STUDIO INTEGRATION" -ForegroundColor Green
@@ -603,9 +892,11 @@ Write-Host "`n🎉 Workshop Script zakończony!" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 Write-Host "💡 Komendy:" -ForegroundColor Cyan
 Write-Host "   • Uruchom ponownie: .\start-workshop.ps1" -ForegroundColor White
-Write-Host "   • Napraw problemy: .\repair-workshop.ps1" -ForegroundColor White
+Write-Host "   • Sprawdź status: .\start-workshop.ps1 -CheckOnly" -ForegroundColor White
+Write-Host "   • Napraw problemy: .\start-workshop.ps1 -RepairOnly" -ForegroundColor White
 Write-Host "   • Szybki start: .\start-workshop.ps1 -QuickStart" -ForegroundColor White
 Write-Host "   • Z naprawą: .\start-workshop.ps1 -Repair" -ForegroundColor White
+Write-Host "   • Wszystkie serwery: .\start-workshop.ps1 -AllServers" -ForegroundColor White
 if ($ngrokUrl) {
     Write-Host "🌐 Zapamiętaj URL dla Copilot Studio: $ngrokUrl/api/McpServer" -ForegroundColor Yellow
 }

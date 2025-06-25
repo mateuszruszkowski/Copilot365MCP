@@ -445,6 +445,8 @@ try {
 FUNCTION_APP_NAME=$FUNCTION_APP_NAME
 FUNCTION_APP_URL=https://$FUNCTION_APP_URL
 MCP_ENDPOINT=https://$FUNCTION_APP_URL/api/McpServer
+RESOURCE_GROUP=$RESOURCE_GROUP
+SUBSCRIPTION_ID=$env:SUBSCRIPTION_ID
 "@ | Add-Content -Path ".\ai-config.env" -Encoding UTF8
 
     Write-Host "✅ Konfiguracja Azure Functions dodana" -ForegroundColor Green

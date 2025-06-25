@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pip index versions:*)"
+      "Bash(pip index versions:*)",
+      "Bash(find:*)",
+      "Bash(az functionapp show:*)"
     ],
     "deny": []
   }
