@@ -29,15 +29,13 @@
     "azure.subscriptionId": "2e539821-ff47-4b8a-9f5a-200de5bb3e8d",
     "azure.resourceGroup": "copilot-mcp-workshop-rg",
     "files.exclude": {
-      "**/node_modules": true,
-      "**/.git": true,
-      "**/.DS_Store": true,
-      "**/dist": true,
-      "**/.venv": true,
       "**/__pycache__": true,
+      "**/.DS_Store": true,
+      "**/.git": true,
+      "**/.venv": true,
       "**/*.pyc": true,
-      "**/.env": true,
-      "**/ai-config.env": true
+      "**/dist": true,
+      "**/node_modules": true
     },
     "search.exclude": {
       "**/node_modules": true,
