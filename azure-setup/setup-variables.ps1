@@ -1,4 +1,4 @@
-﻿# Poprawione zmienne środowiskowe dla warsztatu Copilot 365 MCP
+# Zmienne środowiskowe dla warsztatu Copilot 365 MCP
 # Użyj tego pliku do konfiguracji zmiennych przed uruchomieniem skryptów Azure
 
 # ============================================================================
@@ -140,15 +140,16 @@ else {
 }
 
 Write-Host "`n🚀 Gotowy do rozpoczęcia konfiguracji!" -ForegroundColor Green
-Write-Host "   Następny krok: Uruchom .\setup-azure-fixed.ps1" -ForegroundColor Yellow
+Write-Host "   Następny krok: Uruchom .\setup-azure.ps1" -ForegroundColor Yellow
 
 # ============================================================================
 # DODATKOWE KOMENDY POMOCNICZE
 # ============================================================================
 
 Write-Host "`n💡 Pomocne komendy:" -ForegroundColor Cyan
-Write-Host "   Diagnostyka Azure: .\diagnose-azure.ps1" -ForegroundColor White
-Write-Host "   Konfiguracja Azure: .\setup-azure-fixed.ps1" -ForegroundColor White
+Write-Host "   Konfiguracja Azure: .\setup-azure.ps1" -ForegroundColor White
+Write-Host "   Test konfiguracji: .\test-azure-config.ps1" -ForegroundColor White
+Write-Host "   Sprawdź status: .\setup-azure.ps1 -CheckStatus" -ForegroundColor White
 Write-Host "   Logowanie Azure: az login" -ForegroundColor White
 Write-Host "   Lista subskrypcji: az account list --output table" -ForegroundColor White
 Write-Host "   Zmiana subskrypcji: az account set --subscription 'ID'" -ForegroundColor White

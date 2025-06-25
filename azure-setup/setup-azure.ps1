@@ -1,11 +1,13 @@
-﻿# Poprawiony skrypt konfiguracji infrastruktury Azure dla warsztatu Copilot 365 MCP
+# 🚀 Kompletny skrypt konfiguracji infrastruktury Azure dla warsztatu Copilot 365 MCP
 # Uruchom jako Administrator w PowerShell
 # Przed uruchomieniem: .\setup-variables.ps1
 
 param(
     [switch]$Force,
     [switch]$SkipLogin,
-    [switch]$DiagnoseOnly
+    [switch]$DiagnoseOnly,
+    [switch]$FixProviders,
+    [switch]$CheckStatus
 )
 
 # Import zmiennych środowiskowych
@@ -15,16 +17,73 @@ if (-not $env:SUBSCRIPTION_ID) {
     exit 1
 }
 
-Write-Host "🚀 Rozpoczęcie poprawionej konfiguracji Azure dla warsztatu Copilot 365 MCP" -ForegroundColor Green
+Write-Host "🚀 Rozpoczęcie konfiguracji Azure dla warsztatu Copilot 365 MCP" -ForegroundColor Green
 Write-Host "=================================================================" -ForegroundColor Green
 
 # ============================================================================
-# DIAGNOSTYKA I NAPRAWA
+# DIAGNOSTYKA
 # ============================================================================
 
 if ($DiagnoseOnly) {
     Write-Host "🔍 Tryb diagnostyki..." -ForegroundColor Cyan
-    .\diagnose-azure.ps1
+    if (Test-Path ".\diagnose-azure.ps1") {
+        .\diagnose-azure.ps1
+    } else {
+        Write-Host "❌ Brak pliku diagnose-azure.ps1" -ForegroundColor Red
+    }
+    exit 0
+}
+
+# ============================================================================
+# SPRAWDZENIE STATUSU
+# ============================================================================
+
+if ($CheckStatus) {
+    Write-Host "`n4️⃣ Sprawdzanie statusu zasobów..." -ForegroundColor Cyan
+    
+    $resourceGroup = "copilot-mcp-workshop-rg"
+    
+    # Sprawdź czy Resource Group istnieje
+    $rgExists = az group exists --name $resourceGroup
+    if ($rgExists -eq "true") {
+        Write-Host "✅ Resource Group: $resourceGroup istnieje" -ForegroundColor Green
+        
+        # Lista zasobów w grupie
+        Write-Host "`n📦 Zasoby w grupie:" -ForegroundColor Cyan
+        az resource list --resource-group $resourceGroup --query "[].{Name:name, Type:type, Status:provisioningState}" --output table
+        
+    }
+    else {
+        Write-Host "❌ Resource Group: $resourceGroup nie istnieje" -ForegroundColor Red
+        Write-Host "🔄 Możesz go utworzyć uruchamiając ten skrypt bez parametru -CheckStatus" -ForegroundColor Yellow
+    }
+    
+    # Sprawdź pliki konfiguracyjne
+    Write-Host "`n📁 Pliki konfiguracyjne:" -ForegroundColor Cyan
+    
+    $configFiles = @(
+        "ai-config.env",
+        "setup-variables.ps1",
+        "setup-azure.ps1"
+    )
+    
+    foreach ($file in $configFiles) {
+        if (Test-Path $file) {
+            Write-Host "✅ $file istnieje" -ForegroundColor Green
+        }
+        else {
+            Write-Host "❌ $file nie istnieje" -ForegroundColor Red
+        }
+    }
+    
+    # Sprawdź konfigurację AI
+    if (Test-Path "ai-config.env") {
+        Write-Host "`n🧠 Konfiguracja AI Services:" -ForegroundColor Cyan
+        Get-Content "ai-config.env" | Where-Object { $_ -match "^[^#]" } | ForEach-Object {
+            Write-Host "   $_" -ForegroundColor White
+        }
+    }
+    
     exit 0
 }
 
@@ -59,6 +118,13 @@ if (-not $SkipLogin) {
                 $env:SUBSCRIPTION_ID = $selectedSub
                 az account set --subscription $selectedSub
                 Write-Host "✅ Ustawiono subskrypcję: $selectedSub" -ForegroundColor Green
+                
+                # Aktualizuj plik variables
+                $variablesFile = "setup-variables.ps1"
+                if (Test-Path $variablesFile) {
+                    (Get-Content $variablesFile) -replace "SUBSCRIPTION_ID = .*", "SUBSCRIPTION_ID = `"$selectedSub`"" | Set-Content $variablesFile
+                    Write-Host "✅ Zaktualizowano $variablesFile" -ForegroundColor Green
+                }
             }
             else {
                 Write-Host "❌ Anulowano przez użytkownika" -ForegroundColor Red
@@ -119,6 +185,12 @@ foreach ($provider in $requiredProviders) {
     catch {
         Write-Host "⚠️ Nie udało się zarejestrować $provider (może być niedostępny)" -ForegroundColor Yellow
     }
+}
+
+# Jeśli tylko naprawiamy providerów, zakończ tutaj
+if ($FixProviders) {
+    Write-Host "`n✅ Naprawa providerów zakończona!" -ForegroundColor Green
+    exit 0
 }
 
 # ============================================================================
@@ -474,6 +546,12 @@ Write-Host "   3. Skonfiguruj serwery MCP" -ForegroundColor White
 Write-Host "   4. Wdróż Azure Functions" -ForegroundColor White
 
 Write-Host "`n🧪 Test konfiguracji:" -ForegroundColor Cyan
+Write-Host "   .\test-azure-config.ps1" -ForegroundColor White
 Write-Host "   curl https://$FUNCTION_APP_URL/api/McpServer" -ForegroundColor White
+
+Write-Host "`n💡 Dodatkowe komendy:" -ForegroundColor Cyan
+Write-Host "   • Sprawdź status: .\setup-azure.ps1 -CheckStatus" -ForegroundColor White
+Write-Host "   • Napraw providerów: .\setup-azure.ps1 -FixProviders" -ForegroundColor White
+Write-Host "   • Pełna reinstalacja: .\setup-azure.ps1 -Force" -ForegroundColor White
 
 Write-Host "`n✨ Konfiguracja Azure zakończona pomyślnie!" -ForegroundColor Green
